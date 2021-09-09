@@ -1,35 +1,41 @@
 #ifndef BOOST_CONNECTOR__ENTITY__ENTITY_CACHE__HPP
 #define BOOST_CONNECTOR__ENTITY__ENTITY_CACHE__HPP
 
+#include <boost/connector/dependency/dependency_map.hpp>
 #include <boost/connector/entity/entity_key.hpp>
 #include <boost/connector/entity/entity_lifetime_impl.hpp>
 
+#include <any>
+#include <memory>
 #include <typeindex>
+#include <unordered_map>
 
 namespace boost::connector
 {
-struct lifetime_map_key
-{
-    friend std::size_t
-    hash_value(lifetime_map_key const &arg);
-
-    friend bool
-    operator==(lifetime_map_key const &l, lifetime_map_key const &r)
-    {
-        return l.interface_type_ == r.interface_type_ && l.key_ == r.key_;
-    }
-
-    std::type_index interface_type_;
-    entity_key      key_;
-};
-
-struct entity_cache
+struct entity_cache_impl
 {
     std::shared_ptr< entity_lifetime_impl >
-    locate(std::type_info const &iface_type, entity_key const &args)
+    locate(std::type_info const &iface_type, entity_key const &args);
+
+  private:
+    using weak_lifetime_by_key = std::unordered_map< entity_key, std::weak_ptr< entity_lifetime_impl > >;
+
+    using weak_lifetimes_by_interface = std::unordered_map< std::type_index, weak_lifetime_by_key >;
+
+    weak_lifetimes_by_interface lifetime_cache_;
+};
+
+struct entity_context
+{
+    void
+    set_dependencies(dependency_map m)
     {
-        return nullptr;
+        dependencies_ = std::move(m);
     }
+
+  private:
+    std::shared_ptr< entity_cache_impl > cache_;
+    dependency_map                       dependencies_;
 };
 }   // namespace boost::connector
 
