@@ -16,9 +16,6 @@ struct entity_impl_concept
     virtual ~entity_impl_concept() = default;
 };
 
-using weak_entity_impl_ptr = std::weak_ptr< entity_impl_concept >;
-using entity_impl_ptr      = std::shared_ptr< entity_impl_concept >;
-
 }   // namespace boost::connector
 
 #endif
