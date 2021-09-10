@@ -1,6 +1,7 @@
 #ifndef BOOST_CONNECTOR__UTIL__WEBSOCKET_STREAM_VARIANT__HPP
 #define BOOST_CONNECTOR__UTIL__WEBSOCKET_STREAM_VARIANT__HPP
 
+#include <boost/asio/awaitable.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/ssl.hpp>
@@ -18,6 +19,9 @@ using wss_transport_layer = boost::beast::websocket::stream< tls_transport_layer
 struct websocket_stream_variant
 {
     websocket_stream_variant(asio::any_io_executor const &exec, asio::ssl::context &sslctx, transport_type type);
+
+    asio::awaitable< void >
+    connect(std::string const &host, std::string const &service, std::string const &target);
 
   private:
     static variant2::variant< ws_transport_layer, wss_transport_layer >

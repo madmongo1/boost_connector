@@ -49,6 +49,7 @@ ftx_websocket_connector::run()
     auto url_parts = decode_url(args_.url);
 
     auto ws = websocket_stream_variant(get_executor(), sslctx_, url_parts.transport);
+    co_await ws.connect(url_parts.hostname, url_parts.service, url_parts.path_etc);
 
     co_return;
 }
