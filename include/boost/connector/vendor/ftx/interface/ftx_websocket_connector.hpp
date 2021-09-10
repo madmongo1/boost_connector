@@ -2,6 +2,7 @@
 #define BOOST_CONNETOR__VENDOR__FTX__FTX_WEBSOCKET_CONNECTOR__HPP
 
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/awaitable.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/connector/entity/entity_impl_concept.hpp>
 #include <boost/connector/vendor/ftx/ftx_config.hpp>
@@ -39,6 +40,20 @@ struct ftx_websocket_connector
 
     virtual void
     stop() override final;
+
+    /// return a reference to the internal executor.
+    ///
+    /// Dependent entities may use this executor to co-ordinate work with this connector.
+    /// @note Safe to call from any thread or executor
+    asio::any_io_executor const &
+    get_executor() const;
+
+  private:
+    asio::awaitable< void >
+    run();
+
+    void
+    on_stop();
 
   private:
     asio::any_io_executor   exec_;
