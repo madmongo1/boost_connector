@@ -5,6 +5,8 @@
 
 #include <iostream>
 
+namespace asio = boost::asio;
+
 int
 main()
 {
@@ -12,6 +14,9 @@ main()
 
     auto ioc    = boost::asio::io_context();
     auto sslctx = boost::asio::ssl::context(boost::asio::ssl::context::tls_client);
+
+    auto s         = asio::ssl::stream< asio::ip::tcp::socket >(ioc, sslctx);
+    s.next_layer() = asio::ip::tcp::socket(ioc);
 
     /*
         auto mdeps = boost::connector::mutable_dependency_map();
@@ -23,7 +28,7 @@ main()
 
     */
 
-    auto args = boost::connector::ftx_websocket_key { .url  = "",
+    auto args = boost::connector::ftx_websocket_key { .url  = "wss://ftx.com/ws/",
                                                       .auth = {
 
                                                       } };

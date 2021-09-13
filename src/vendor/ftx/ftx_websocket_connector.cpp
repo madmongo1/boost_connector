@@ -5,6 +5,8 @@
 #include <boost/connector/util/websocket_stream_variant.hpp>
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector.hpp>
 
+#include <iostream>
+
 namespace boost::connector
 {
 // interface
@@ -23,8 +25,19 @@ ftx_websocket_connector::start()
 {
     asio::co_spawn(get_executor(),
                    run(),
-                   [self = shared_from_this()](std::exception_ptr)
+                   [self = shared_from_this()](std::exception_ptr ep)
                    {
+                       try
+                       {
+                           if (ep)
+                               std::rethrow_exception(ep);
+                           std::cout << "ftx_websocket_connector::start : success\n";
+                       }
+                       catch (const std::exception &e)
+                       {
+                           std::cout << "ftx_websocket_connector::start : " << e.what() << '\n';
+                       }
+
                        // @todo mark status as fatal, emit signal and stop
                    });
 }
@@ -46,6 +59,7 @@ ftx_websocket_connector::get_executor() const
 asio::awaitable< void >
 ftx_websocket_connector::run()
 {
+    std::cout << "ftx_websocket_connector::run()\n";
     auto url_parts = decode_url(args_.url);
 
     auto ws = websocket_stream_variant(get_executor(), sslctx_, url_parts.transport);

@@ -23,9 +23,26 @@ struct websocket_stream_variant
     asio::awaitable< void >
     connect(std::string const &host, std::string const &service, std::string const &target);
 
+    /// Test wether the underlying transport is tls
+    /// @return bool which will be true if the next layer is TLS
+    bool
+    is_tls() const;
+
   private:
     static variant2::variant< ws_transport_layer, wss_transport_layer >
     construct(asio::any_io_executor const &exec, asio::ssl::context &sslctx, transport_type type);
+
+    /// Replace the tcp transport layer with the given socket.
+    ///
+    /// @pre The existing socket is not already connected.
+    void
+    replace_tcp(tcp_transport_layer &&tcp);
+
+    /// Perform the tls handshake
+    ///
+    /// @pre is_tls() == true
+    asio::awaitable< void >
+    tls_handshake(std::string const &hostname);
 
   private:
     variant2::variant< ws_transport_layer, wss_transport_layer > vws_;
