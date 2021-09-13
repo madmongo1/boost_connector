@@ -33,7 +33,7 @@ main()
 
                                                       } };
 
-    auto pconn = boost::connector::make_lifetime_ptr< boost::connector::ftx_websocket_connector >(
+    auto pconn = boost::connector::make_lifetime_ptr< boost::connector::vendor::ftx::websocket_connector >(
         ioc.get_executor(), sslctx, args);
 
     ioc.run();

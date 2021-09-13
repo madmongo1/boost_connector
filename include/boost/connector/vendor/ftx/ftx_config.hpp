@@ -15,6 +15,18 @@ struct ftx_credentials
     std::string subaccount;
     std::string api_key;
     std::string api_secret;
+
+    bool
+    has_auth() const
+    {
+        return !api_key.empty() && !api_secret.empty();
+    }
+
+    bool
+    has_subaccount() const
+    {
+        return !subaccount.empty();
+    }
 };
 
 BOOST_DESCRIBE_STRUCT(ftx_credentials, (), (subaccount, api_key, api_secret))

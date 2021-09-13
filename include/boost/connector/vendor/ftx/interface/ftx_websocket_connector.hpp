@@ -5,11 +5,19 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/connector/entity/entity_impl_concept.hpp>
+#include <boost/connector/util/async_queue.hpp>
+#include <boost/connector/util/async_circular_buffer.hpp>
 #include <boost/connector/vendor/ftx/ftx_config.hpp>
+#include <boost/json/value.hpp>
 
 #include <memory>
 
 namespace boost::connector
+{
+// forward declaration
+struct websocket_stream_variant;
+
+namespace vendor::ftx
 {
 /// Implementation of an FTX websocket connector.
 ///
@@ -20,9 +28,9 @@ namespace boost::connector
 /// @note this object manages its own memory via enable_shared_from_this. It will allow itself to be destoyed once
 /// all internal outstanding asynchrnous operations are completed.
 ///
-struct ftx_websocket_connector
+struct websocket_connector
 : entity_impl_concept
-, std::enable_shared_from_this< ftx_websocket_connector >
+, std::enable_shared_from_this< websocket_connector >
 {
     /// Construct an FTX websocket connector.
     ///
@@ -31,9 +39,9 @@ struct ftx_websocket_connector
     /// @param sslctx is a reference to the ssl context to be used for any ssl connections. The context's lifetime must
     /// not end before the end of the lifetime of this object
     /// @param key is the set of arguments that uniquely ifdentify this connectior and parameterise the connection.
-    ftx_websocket_connector(boost::asio::any_io_executor exec,
-                            boost::asio::ssl::context &  sslctx,
-                            ftx_websocket_key const &    key);
+    websocket_connector(boost::asio::any_io_executor exec,
+                            boost::asio::ssl::context   &sslctx,
+                            ftx_websocket_key const     &key);
 
     virtual void
     start() override final;
@@ -52,15 +60,21 @@ struct ftx_websocket_connector
     asio::awaitable< void >
     run();
 
+    asio::awaitable< void >
+    read_state(websocket_stream_variant &ws, async_circular_buffer< json::value, 1 > &pong_buffer);
+
     void
     on_stop();
 
   private:
     asio::any_io_executor   exec_;
-    asio::ssl::context &    sslctx_;
+    asio::ssl::context     &sslctx_;
     ftx_websocket_key const args_;
+
+    async_queue< std::string > write_queue_;
 };
 
+}   // namespace vendor::ftx
 }   // namespace boost::connector
 
 #endif

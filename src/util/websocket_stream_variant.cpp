@@ -12,7 +12,7 @@
 namespace boost::connector
 {
 websocket_stream_variant::websocket_stream_variant(asio::any_io_executor const &exec,
-                                                   asio::ssl::context &         sslctx,
+                                                   asio::ssl::context          &sslctx,
                                                    transport_type               type)
 : vws_(construct(exec, sslctx, type))
 {
@@ -100,6 +100,26 @@ websocket_stream_variant::is_tls() const
             wss_transport_layer >; 
     }, vws_);
     // clang-format on
+}
+
+asio::awaitable< std::size_t >
+websocket_stream_variant::write(asio::const_buffer buf)
+{
+    // clang-format off
+    return visit([buf](auto &ws)
+    {
+        return ws.async_write(buf, asio::use_awaitable);
+    }, vws_);
+    // clang-format on
+}
+
+asio::awaitable< websocket_message >
+websocket_stream_variant::read()
+{
+    auto msg = websocket_message();
+    co_await visit([&msg](auto &ws) { return ws.async_read(msg.as_buffer(), asio::use_awaitable); }, vws_);
+    visit([&msg](auto &ws) { msg.set_binary(ws.got_binary()); }, vws_);
+    co_return msg;
 }
 
 asio::awaitable< void >
