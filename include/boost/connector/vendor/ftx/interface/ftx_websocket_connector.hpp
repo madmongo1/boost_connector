@@ -3,10 +3,11 @@
 
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/connector/entity/entity_impl_concept.hpp>
-#include <boost/connector/util/async_queue.hpp>
 #include <boost/connector/util/async_circular_buffer.hpp>
+#include <boost/connector/util/async_queue.hpp>
 #include <boost/connector/vendor/ftx/ftx_config.hpp>
 #include <boost/json/value.hpp>
 
@@ -40,8 +41,8 @@ struct websocket_connector
     /// not end before the end of the lifetime of this object
     /// @param key is the set of arguments that uniquely ifdentify this connectior and parameterise the connection.
     websocket_connector(boost::asio::any_io_executor exec,
-                            boost::asio::ssl::context   &sslctx,
-                            ftx_websocket_key const     &key);
+                        boost::asio::ssl::context &  sslctx,
+                        ftx_websocket_key const &    key);
 
     virtual void
     start() override final;
@@ -63,14 +64,12 @@ struct websocket_connector
     asio::awaitable< void >
     read_state(websocket_stream_variant &ws, async_circular_buffer< json::value, 1 > &pong_buffer);
 
-    void
-    on_stop();
-
   private:
     asio::any_io_executor   exec_;
-    asio::ssl::context     &sslctx_;
+    asio::ssl::context &    sslctx_;
     ftx_websocket_key const args_;
 
+    asio::cancellation_signal  stop_signal_;
     async_queue< std::string > write_queue_;
 };
 

@@ -1,4 +1,5 @@
 #include <boost/algorithm/hex.hpp>
+#include <boost/asio/bind_cancellation_slot.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/dispatch.hpp>
@@ -17,8 +18,8 @@ namespace boost::connector::vendor::ftx
 // interface
 
 websocket_connector::websocket_connector(boost::asio::any_io_executor exec,
-                                         boost::asio::ssl::context   &sslctx,
-                                         ftx_websocket_key const     &key)
+                                         boost::asio::ssl::context &  sslctx,
+                                         ftx_websocket_key const &    key)
 : exec_(std::move(exec))
 , sslctx_(sslctx)
 , args_(key)
@@ -31,27 +32,34 @@ websocket_connector::start()
 {
     asio::co_spawn(get_executor(),
                    run(),
-                   [self = shared_from_this()](std::exception_ptr ep)
-                   {
-                       try
-                       {
-                           if (ep)
-                               std::rethrow_exception(ep);
-                           std::cout << "ftx_websocket_connector::start : success\n";
-                       }
-                       catch (const std::exception &e)
-                       {
-                           std::cout << "ftx_websocket_connector::start : " << e.what() << '\n';
-                       }
+                   asio::bind_cancellation_slot(stop_signal_.slot(),
+                                                [self = shared_from_this()](std::exception_ptr ep)
+                                                {
+                                                    try
+                                                    {
+                                                        if (ep)
+                                                            std::rethrow_exception(ep);
+                                                        std::cout << "ftx_websocket_connector::start : success\n";
+                                                    }
+                                                    catch (const std::exception &e)
+                                                    {
+                                                        std::cout << "ftx_websocket_connector::start : " << e.what()
+                                                                  << '\n';
+                                                    }
 
-                       /// @todo mark status as fatal, emit signal and stop
-                   });
+                                                    /// @todo mark status as fatal, emit signal and stop
+                                                }));
 }
 
 void
 websocket_connector::stop()
 {
-    asio::dispatch(get_executor(), [self = shared_from_this()] { self->on_stop(); });
+    asio::dispatch(get_executor(),
+                   [self = shared_from_this()]
+                   {
+                       std::cout << "emitting stop signal\n";
+                       self->stop_signal_.emit(asio::cancellation_type::all);
+                   });
 }
 
 asio::any_io_executor const &
@@ -160,8 +168,21 @@ websocket_connector::read_state(websocket_stream_variant &ws, async_circular_buf
         }
     };
 
+    auto read_cancel_handler = [this, &ws](asio::cancellation_type type)
+    {
+        if ((type & asio::cancellation_type::terminal) == asio::cancellation_type::none)
+            return;
+
+        std::cout << "read_cancel_handler\n";
+        asio::co_spawn(ws.get_executor(),
+                       ws.close(),
+                       [self = this->shared_from_this()](std::exception_ptr) { std::cout << "close complete\n"; });
+    };
+
     for (;;)
     {
+        auto state = co_await asio::this_coro::cancellation_state;
+        state.slot().assign(read_cancel_handler);
         auto msg = co_await ws.read();
         if (msg.is_binary())
             throw std::runtime_error("ftx_websocket_connector::read_state - binary frame received");
@@ -179,11 +200,6 @@ websocket_connector::read_state(websocket_stream_variant &ws, async_circular_buf
             throw std::runtime_error("ftx_websocket_connector::read_state : unrecognised frame " +
                                      copy(msg.as_string()));
     }
-}
-
-void
-websocket_connector::on_stop()
-{
 }
 
 }   // namespace boost::connector::vendor::ftx

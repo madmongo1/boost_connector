@@ -12,7 +12,7 @@
 namespace boost::connector
 {
 websocket_stream_variant::websocket_stream_variant(asio::any_io_executor const &exec,
-                                                   asio::ssl::context          &sslctx,
+                                                   asio::ssl::context &         sslctx,
                                                    transport_type               type)
 : vws_(construct(exec, sslctx, type))
 {
@@ -88,6 +88,18 @@ websocket_stream_variant::connect(std::string const &host, std::string const &se
         co_await tls_handshake(host);
 
     co_await visit([&host, &target](auto &ws) { return ws.async_handshake(host, target, asio::use_awaitable); }, vws_);
+}
+
+auto
+websocket_stream_variant::get_executor() -> executor_type
+{
+    return visit([](auto &ws) { return ws.get_executor(); }, vws_);
+}
+
+asio::awaitable< void >
+websocket_stream_variant::close(beast::websocket::close_reason reason)
+{
+    return visit([reason](auto &ws) { return ws.async_close(reason, asio::use_awaitable); }, vws_);
 }
 
 bool

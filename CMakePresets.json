@@ -5,14 +5,14 @@
             "name": "clang",
             "displayName": "System Clang",
             "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "binaryDir": "${sourceDir}/cmake-build-${presetName}",
             "generator": "Ninja",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_CXX_FLAGS": "-stdlib=libc++",
                 "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/cmake-${presetName}",
                 "CMAKE_C_COMPILER": "/usr/bin/clang",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++"
             }
@@ -21,34 +21,31 @@
             "name": "gcc",
             "displayName": "GCC C++20",
             "description": "Using compilers: C = /usr/bin/gcc, CXX = /usr/bin/g++",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "binaryDir": "${sourceDir}/cmake-build-${presetName}",
             "generator": "Ninja",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_CXX_FLAGS": "",
                 "CMAKE_EXE_LINKER_FLAGS": "",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/cmake-${presetName}",
                 "CMAKE_C_COMPILER": "/usr/bin/gcc",
                 "CMAKE_CXX_COMPILER": "/usr/bin/g++"
             }
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "clang",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "clang"
         },
         {
-            "name": "clang-debug",
-            "displayName": "Clang C++20 - Debug",
-            "inherits": "clang",
-            "description": "Clang Debug",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "gcc-debug",
-            "displayName": "GCC C++20 Debug",
-            "inherits": "gcc",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
+            "name": "gcc",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "gcc"
         }
     ]
 }

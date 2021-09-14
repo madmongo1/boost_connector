@@ -6,6 +6,7 @@
 #include <iostream>
 
 namespace asio = boost::asio;
+using namespace std::literals;
 
 int
 main()
@@ -35,6 +36,16 @@ main()
 
     auto pconn = boost::connector::make_lifetime_ptr< boost::connector::vendor::ftx::websocket_connector >(
         ioc.get_executor(), sslctx, args);
+
+    asio::co_spawn(
+        ioc.get_executor(),
+        [&]() -> asio::awaitable< void >
+        {
+            auto t = asio::steady_timer(co_await asio::this_coro::executor, 5s);
+            co_await t.async_wait(asio::use_awaitable);
+            pconn.reset();
+        },
+        asio::detached);
 
     ioc.run();
 }

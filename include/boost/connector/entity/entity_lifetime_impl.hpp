@@ -73,6 +73,13 @@ struct lifetime_ptr
         return *get();
     }
 
+    void
+    reset()
+    {
+        lifetime_impl_.reset();
+        ptr_ = nullptr;
+    }
+
     template < class U >
     friend struct weak_lifetime_ptr;
 

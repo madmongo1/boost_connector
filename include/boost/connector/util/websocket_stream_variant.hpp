@@ -52,10 +52,18 @@ struct websocket_message
 
 struct websocket_stream_variant
 {
-    websocket_stream_variant(asio::any_io_executor const &exec, asio::ssl::context &sslctx, transport_type type);
+    using executor_type = asio::any_io_executor;
+
+    websocket_stream_variant(executor_type const &exec, asio::ssl::context &sslctx, transport_type type);
 
     asio::awaitable< void >
     connect(std::string const &host, std::string const &service, std::string const &target);
+
+    executor_type
+    get_executor();
+
+    asio::awaitable< void >
+    close(beast::websocket::close_reason reason = beast::websocket::close_code::normal);
 
     /// Test wether the underlying transport is tls
     /// @return bool which will be true if the next layer is TLS
