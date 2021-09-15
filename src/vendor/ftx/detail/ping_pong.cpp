@@ -7,16 +7,21 @@
 // Official repository: https://github.com/madmongo1/connector
 //
 
+#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/experimental/as_tuple.hpp>
 #include <boost/asio/experimental/awaitable_operators.hpp>
-#include <boost/asio/co_spawn.hpp>
 #include <boost/connector/vendor/ftx/detail/ping_pong.hpp>
+
+#include <iostream>
 
 namespace boost::connector::vendor::ftx::detail
 {
 asio::awaitable< void >
 run_ping_pong(async_queue< std::string > &write_queue, async_circular_buffer< json::value, 1 > &pong_event)
+try
 {
+    std::cout << __func__ << "() - enter\n";
+
     using namespace std::literals;
     using namespace asio::experimental::awaitable_operators;
 
@@ -53,6 +58,11 @@ run_ping_pong(async_queue< std::string > &write_queue, async_circular_buffer< js
             throw std::runtime_error("ftx_websocket_connector: ping pong timeout");
         }
     }
+    std::cout << __func__ << "() - exit\n";
+}
+catch (std::exception &e)
+{
+    std::cout << __func__ << "() - exception: " << e.what() << "\n";
 }
 
 }   // namespace boost::connector::vendor::ftx::detail

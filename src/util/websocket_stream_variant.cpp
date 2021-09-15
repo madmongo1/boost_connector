@@ -87,7 +87,32 @@ websocket_stream_variant::connect(std::string const &host, std::string const &se
     if (is_tls())
         co_await tls_handshake(host);
 
+    (co_await asio::this_coro::cancellation_state)
+        .slot()
+        .assign([this](asio::cancellation_type) { this->tcp_layer().close(); });
+
     co_await visit([&host, &target](auto &ws) { return ws.async_handshake(host, target, asio::use_awaitable); }, vws_);
+}
+
+tcp_transport_layer &
+websocket_stream_variant::tcp_layer()
+{
+    struct op
+    {
+        tcp_transport_layer &
+        operator()(ws_transport_layer &ws) const
+        {
+            return ws.next_layer();
+        }
+
+        tcp_transport_layer &
+        operator()(wss_transport_layer &wss) const
+        {
+            return wss.next_layer().next_layer();
+        }
+    };
+
+    return visit(op(), vws_);
 }
 
 auto
@@ -138,10 +163,27 @@ asio::awaitable< void >
 websocket_stream_variant::tls_handshake(std::string const &hostname)
 {
     assert(is_tls());
+
     auto &tls = get< wss_transport_layer >(vws_).next_layer();
+
     if (!SSL_set_tlsext_host_name(tls.native_handle(), hostname.c_str()))
         throw system_error(error_code { static_cast< int >(::ERR_get_error()), asio::error::get_ssl_category() });
-    return tls.async_handshake(asio::ssl::stream_base::client, asio::use_awaitable);
+
+    (co_await asio::this_coro::cancellation_state)
+        .slot()
+        .assign(
+            [&tls](asio::cancellation_type)
+            {
+                // Note that since we have not modified the default filter, the only
+                // cancellation_type that will be presented to the slot will
+                // be `terminal`
+
+                // If we are cancelled, all we can do it close the underlying socket, thereby nuking the entire
+                // TLS connection.
+                tls.next_layer().close();
+            });
+
+    co_await tls.async_handshake(asio::ssl::stream_base::client, asio::use_awaitable);
 }
 
 void

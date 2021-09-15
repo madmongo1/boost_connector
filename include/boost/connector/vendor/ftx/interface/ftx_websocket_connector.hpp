@@ -29,9 +29,9 @@ namespace vendor::ftx
 /// @note this object manages its own memory via enable_shared_from_this. It will allow itself to be destoyed once
 /// all internal outstanding asynchrnous operations are completed.
 ///
-struct websocket_connector
+struct ftx_websocket_connector
 : entity_impl_concept
-, std::enable_shared_from_this< websocket_connector >
+, std::enable_shared_from_this< ftx_websocket_connector >
 {
     /// Construct an FTX websocket connector.
     ///
@@ -40,9 +40,9 @@ struct websocket_connector
     /// @param sslctx is a reference to the ssl context to be used for any ssl connections. The context's lifetime must
     /// not end before the end of the lifetime of this object
     /// @param key is the set of arguments that uniquely ifdentify this connectior and parameterise the connection.
-    websocket_connector(boost::asio::any_io_executor exec,
-                        boost::asio::ssl::context &  sslctx,
-                        ftx_websocket_key const &    key);
+    ftx_websocket_connector(boost::asio::any_io_executor exec,
+                            boost::asio::ssl::context &  sslctx,
+                            ftx_websocket_key const &    key);
 
     virtual void
     start() override final;

@@ -70,6 +70,11 @@ struct websocket_stream_variant
     bool
     is_tls() const;
 
+    /// Return a reference to the underlying tcp socket, regardless of whether this is a TLS or TCP websocket
+    /// @returns a reference to the TCP socket.
+    tcp_transport_layer &
+    tcp_layer();
+
     asio::awaitable< std::size_t >
     write(asio::const_buffer buf);
 

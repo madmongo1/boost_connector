@@ -34,7 +34,7 @@ main()
 
                                                       } };
 
-    auto pconn = boost::connector::make_lifetime_ptr< boost::connector::vendor::ftx::websocket_connector >(
+    auto pconn = boost::connector::make_lifetime_ptr< boost::connector::vendor::ftx::ftx_websocket_connector >(
         ioc.get_executor(), sslctx, args);
 
     asio::co_spawn(
