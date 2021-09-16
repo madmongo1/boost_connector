@@ -11,12 +11,16 @@
 #include <boost/utility/string_view.hpp>
 #include <boost/variant2/variant.hpp>
 
+#include <iosfwd>
+
 namespace boost::connector
 {
 using tcp_transport_layer = boost::asio::ip::tcp::socket;
 using tls_transport_layer = boost::asio::ssl::stream< tcp_transport_layer >;
-using ws_transport_layer  = boost::beast::websocket::stream< tcp_transport_layer >;
-using wss_transport_layer = boost::beast::websocket::stream< tls_transport_layer >;
+using ws_transport_layer =
+    boost::beast::websocket::stream< tcp_transport_layer >;
+using wss_transport_layer =
+    boost::beast::websocket::stream< tls_transport_layer >;
 
 struct websocket_message
 {
@@ -45,6 +49,9 @@ struct websocket_message
         is_binary_ = b;
     }
 
+    friend std::ostream &
+    operator<<(std::ostream &os, websocket_message const &msg);
+
   private:
     beast::flat_buffer buf_;
     bool               is_binary_ = false;
@@ -54,23 +61,29 @@ struct websocket_stream_variant
 {
     using executor_type = asio::any_io_executor;
 
-    websocket_stream_variant(executor_type const &exec, asio::ssl::context &sslctx, transport_type type);
+    websocket_stream_variant(executor_type const &exec,
+                             asio::ssl::context  &sslctx,
+                             transport_type       type);
 
     asio::awaitable< void >
-    connect(std::string const &host, std::string const &service, std::string const &target);
+    connect(std::string const &host,
+            std::string const &service,
+            std::string const &target);
 
     executor_type
     get_executor();
 
     asio::awaitable< void >
-    close(beast::websocket::close_reason reason = beast::websocket::close_code::normal);
+    close(beast::websocket::close_reason reason =
+              beast::websocket::close_code::normal);
 
     /// Test wether the underlying transport is tls
     /// @return bool which will be true if the next layer is TLS
     bool
     is_tls() const;
 
-    /// Return a reference to the underlying tcp socket, regardless of whether this is a TLS or TCP websocket
+    /// Return a reference to the underlying tcp socket, regardless of whether
+    /// this is a TLS or TCP websocket
     /// @returns a reference to the TCP socket.
     tcp_transport_layer &
     tcp_layer();
@@ -83,7 +96,9 @@ struct websocket_stream_variant
 
   private:
     static variant2::variant< ws_transport_layer, wss_transport_layer >
-    construct(asio::any_io_executor const &exec, asio::ssl::context &sslctx, transport_type type);
+    construct(asio::any_io_executor const &exec,
+              asio::ssl::context          &sslctx,
+              transport_type               type);
 
     /// Replace the tcp transport layer with the given socket.
     ///

@@ -9,10 +9,12 @@
 #include <boost/connector/util/websocket_stream_variant.hpp>
 #include <boost/variant2/variant.hpp>
 
+#include <iostream>
+
 namespace boost::connector
 {
 websocket_stream_variant::websocket_stream_variant(asio::any_io_executor const &exec,
-                                                   asio::ssl::context &         sslctx,
+                                                   asio::ssl::context          &sslctx,
                                                    transport_type               type)
 : vws_(construct(exec, sslctx, type))
 {
@@ -82,7 +84,10 @@ connect_one(asio::ip::tcp::resolver::results_type results)
 
 asio::awaitable< void >
 websocket_stream_variant::connect(std::string const &host, std::string const &service, std::string const &target)
+try
 {
+    std::cout << "websocket_stream_variant::connect - entry\n";
+
     replace_tcp(co_await connect_one(co_await resolve(host, service)));
     if (is_tls())
         co_await tls_handshake(host);
@@ -92,6 +97,14 @@ websocket_stream_variant::connect(std::string const &host, std::string const &se
         .assign([this](asio::cancellation_type) { this->tcp_layer().close(); });
 
     co_await visit([&host, &target](auto &ws) { return ws.async_handshake(host, target, asio::use_awaitable); }, vws_);
+    std::cout << "ftx_websocket_connector::reconnect() - create websocket\n";
+
+    std::cout << "websocket_stream_variant::connect - success\n";
+}
+catch (std::exception &e)
+{
+    std::cout << "websocket_stream_variant::connect - exception : " << e.what()
+              << '\n';
 }
 
 tcp_transport_layer &
@@ -142,21 +155,39 @@ websocket_stream_variant::is_tls() const
 asio::awaitable< std::size_t >
 websocket_stream_variant::write(asio::const_buffer buf)
 {
+    // For now, we will not handle cancellation. We will rely on the
+    // cancellation of the outstanding read.
     // clang-format off
-    return visit([buf](auto &ws)
-    {
-        return ws.async_write(buf, asio::use_awaitable);
-    }, vws_);
+
+    return
+        visit([buf](auto &ws)
+        {
+            return ws.async_write(buf, asio::use_awaitable);
+        }, vws_);
+
     // clang-format on
 }
 
 asio::awaitable< websocket_message >
 websocket_stream_variant::read()
 {
-    auto msg = websocket_message();
-    co_await visit([&msg](auto &ws) { return ws.async_read(msg.as_buffer(), asio::use_awaitable); }, vws_);
-    visit([&msg](auto &ws) { msg.set_binary(ws.got_binary()); }, vws_);
-    co_return msg;
+    // For now, we will not handle cancellation. We will rely on the
+    // caller to handle it by calling close()
+    // clang-format off
+
+    return
+        visit([](auto &ws) -> asio::awaitable<websocket_message>
+        {
+            auto msg = websocket_message();
+            co_await
+                ws.async_read(msg.as_buffer(),
+                    asio::use_awaitable);
+
+            msg.set_binary(ws.got_binary());
+            co_return msg;
+        }, vws_);
+
+    // clang-format on
 }
 
 asio::awaitable< void >

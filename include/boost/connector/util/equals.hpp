@@ -27,7 +27,6 @@ operator==(T const &t1, T const &t2)
 
     return r;
 }
-
 }   // namespace boost::connector
 
 #endif

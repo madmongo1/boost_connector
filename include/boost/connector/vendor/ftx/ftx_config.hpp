@@ -1,8 +1,7 @@
 #ifndef BOOST_CONNETOR__VENDOR__FTX__FTX_CONFIG__HPP
 #define BOOST_CONNETOR__VENDOR__FTX__FTX_CONFIG__HPP
 
-#include <boost/connector/util/equals.hpp>
-#include <boost/connector/util/hash_value.hpp>
+#include <boost/connector/util/describe_operators.hpp>
 #include <boost/describe.hpp>
 
 #include <string>
@@ -30,6 +29,7 @@ struct ftx_credentials
 };
 
 BOOST_DESCRIBE_STRUCT(ftx_credentials, (), (subaccount, api_key, api_secret))
+BOOST_CONNECTOR_IMPLEMENT_DESCRIBE_EQUALITY(ftx_credentials)
 
 struct ftx_websocket_key
 {

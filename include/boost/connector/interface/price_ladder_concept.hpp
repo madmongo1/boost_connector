@@ -3,22 +3,18 @@
 
 #include <boost/connector/entity/entity_impl_concept.hpp>
 
-namespace boost::connector
+namespace boost::connector::interface
 {
 struct price_ladder_concept
 : entity_impl_concept
-, std::enable_shared_from_this< price_ladder_concept >
 {
+    // entity_impl_concept
     virtual void
-    start() override;
+    start() override = 0;
 
     virtual void
-    stop() override;
+    stop() override = 0;
 };
-
-struct price_ladder
-{
-};
-}   // namespace boost::connector
+}   // namespace boost::connector::interface
 
 #endif

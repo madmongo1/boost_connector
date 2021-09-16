@@ -22,11 +22,24 @@ struct lifetime_ptr
             ptr_ = static_cast< EntityImpl * >(lifetime_impl_->entity_address());
     }
 
+    template < class U, std::enable_if_t< std::is_convertible_v< U *, EntityImpl * > > * = nullptr >
+    lifetime_ptr(lifetime_ptr< U > const &src)
+    : ptr_(static_cast< U * >(src.get()))
+    , lifetime_impl_(src.get_lifetime_impl())
+    {
+    }
+
     EntityImpl *
     get() const
     {
-        return ptr_->entity_address();
+        return ptr_;
     }
+
+    operator bool() const
+    {
+        return get() != nullptr;
+    }
+
 
     EntityImpl *
     operator->() const
@@ -50,8 +63,14 @@ struct lifetime_ptr
     template < class U >
     friend struct weak_lifetime_ptr;
 
+    std::shared_ptr< entity_lifetime_impl > const &
+    get_lifetime_impl() const
+    {
+        return lifetime_impl_;
+    }
+
   private:
-    EntityImpl *                            ptr_;
+    EntityImpl                             *ptr_;
     std::shared_ptr< entity_lifetime_impl > lifetime_impl_;
 };
 

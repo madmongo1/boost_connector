@@ -1,20 +1,24 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/connector/entity/entity_cache.hpp>
-#include <boost/connector/vendor/ftx/interface/ftx_websocket_connector.hpp>
+#include <boost/connector/price_ladder.hpp>
+#include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
+#include <boost/connector/vendor/ftx/price_ladder_impl.hpp>
 
 #include <iostream>
 
 namespace asio = boost::asio;
 using namespace std::literals;
+namespace connector = boost::connector;
 
 int
 main()
 {
     std::cout << "Hello, World!\n";
 
-    auto ioc    = boost::asio::io_context();
-    auto sslctx = boost::asio::ssl::context(boost::asio::ssl::context::tls_client);
+    auto ioc = boost::asio::io_context();
+    auto sslctx =
+        boost::asio::ssl::context(boost::asio::ssl::context::tls_client);
 
     auto s         = asio::ssl::stream< asio::ip::tcp::socket >(ioc, sslctx);
     s.next_layer() = asio::ip::tcp::socket(ioc);
@@ -29,21 +33,25 @@ main()
 
     */
 
-    auto args = boost::connector::ftx_websocket_key { .url  = "wss://ftx.com/ws/",
-                                                      .auth = {
-
-                                                      } };
-
-    auto pconn = boost::connector::make_lifetime_ptr< boost::connector::vendor::ftx::ftx_websocket_connector >(
-        ioc.get_executor(), sslctx, args);
-
     asio::co_spawn(
         ioc.get_executor(),
-        [&]() -> asio::awaitable< void >
+        [&sslctx]() -> asio::awaitable< void >
         {
+            auto key =
+                connector::ftx_websocket_key { .url  = "wss://ftx.com/ws/",
+                                               .auth = {} };
+            auto ftxconn = boost::connector::vendor::ftx::websocket_connector(
+                connector::make_lifetime_ptr<
+                    connector::vendor::ftx::ftx_websocket_connector_concept >(
+                    co_await asio::this_coro::executor, sslctx, key));
+
+            auto ladder = boost::connector::price_ladder(
+                connector::make_lifetime_ptr<
+                    boost::connector::vendor::ftx::price_ladder_impl >(
+                    ftxconn));
+
             auto t = asio::steady_timer(co_await asio::this_coro::executor, 5s);
             co_await t.async_wait(asio::use_awaitable);
-            pconn.reset();
         },
         asio::detached);
 
