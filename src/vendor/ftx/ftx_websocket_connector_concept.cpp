@@ -20,8 +20,8 @@ namespace boost::connector::vendor::ftx
 
 ftx_websocket_connector_concept::ftx_websocket_connector_concept(
     boost::asio::any_io_executor exec,
-    boost::asio::ssl::context   &sslctx,
-    ftx_websocket_key const     &key)
+    boost::asio::ssl::context &  sslctx,
+    ftx_websocket_key const &    key)
 : exec_(std::move(exec))
 , sslctx_(sslctx)
 , args_(key)
@@ -118,7 +118,7 @@ ftx_auth_frame(ftx_credentials const &auth)
 }
 
 asio::awaitable< void >
-ftx_write_state(websocket_stream_variant   &ws,
+ftx_write_state(websocket_stream_variant &  ws,
                 async_queue< std::string > &write_queue)
 {
     for (;;)
@@ -211,7 +211,7 @@ catch (std::exception &e)
 
 asio::awaitable< void >
 ftx_websocket_connector_concept::read_state(
-    websocket_stream_variant                &ws,
+    websocket_stream_variant &               ws,
     async_circular_buffer< json::value, 1 > &pong_buffer)
 try
 {
@@ -309,6 +309,65 @@ ftx_websocket_connector_concept::wait_down()
     while (connection_state_ == connection_state::up)
         co_await(connection_state_cv_.async_wait(
             asio::experimental::as_tuple(asio::use_awaitable)));
+}
+
+auto
+ftx_websocket_connector_concept::acquire_channel(
+    channel_market_pair const &index) -> asio::awaitable< channel_token >
+try
+{
+    assert(util::check_executor(get_executor()));
+
+    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
+              << ") - entry\n";
+
+    // find or create the channel state and express interest
+
+    auto iter = channel_states_.find(index);
+    if (iter == channel_states_.end())
+        iter = channel_states_.emplace(index, get_executor()).first;
+    else
+        ++iter->second.interest;
+
+    auto &state = iter->second;
+
+    while (state.acquired)
+    {
+        co_await state.cv.async_wait(
+            asio::experimental::as_tuple(asio::use_awaitable));
+    }
+
+    state.acquired = true;
+
+    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
+              << ") - exit ok\n";
+
+    co_return channel_token { this, iter };
+}
+catch (std::exception &e)
+{
+    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
+              << ") - exception: " << e.what() << "\n";
+    assert(false);
+    throw;
+}
+
+void
+ftx_websocket_connector_concept::release_channel(channel_iterator iter)
+{
+    std::cout << "ftx_websocket_connector_concept::release_channel("
+              << iter->first << ") - entry\n";
+    assert(util::check_executor(get_executor()));
+    auto &state = iter->second;
+    assert(state.acquired);
+    state.acquired = false;
+    state.cv.cancel_one();   // release one waiter
+    if (--state.interest == 0)
+    {
+        std::cout << "ftx_websocket_connector_concept::release_channel("
+                  << iter->first << ") - erase state\n";
+        channel_states_.erase(iter);
+    }
 }
 
 }   // namespace boost::connector::vendor::ftx

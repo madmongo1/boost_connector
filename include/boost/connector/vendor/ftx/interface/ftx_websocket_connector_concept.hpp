@@ -60,8 +60,8 @@ struct ftx_websocket_connector_concept
     /// @param key is the set of arguments that uniquely ifdentify this
     /// connectior and parameterise the connection.
     ftx_websocket_connector_concept(boost::asio::any_io_executor exec,
-                                    boost::asio::ssl::context   &sslctx,
-                                    ftx_websocket_key const     &key);
+                                    boost::asio::ssl::context &  sslctx,
+                                    ftx_websocket_key const &    key);
 
     virtual void
     start() override final;
@@ -127,6 +127,66 @@ struct ftx_websocket_connector_concept
         }
     }
 
+    struct channel_state
+    {
+        using timer_t    = asio::steady_timer;
+        using time_point = timer_t::time_point;
+
+        channel_state(executor_type exec)
+        : cv(std::move(exec), time_point::max())
+        {
+        }
+
+        std::size_t        interest = 1;
+        bool               acquired = false;
+        asio::steady_timer cv;
+    };
+
+    using channel_state_map =
+        std::unordered_map< channel_market_pair,
+                            channel_state,
+                            boost::hash< channel_market_pair >,
+                            std::equal_to<> >;
+    using channel_iterator = channel_state_map::iterator;
+
+    /// @brief represents unique ownership of a channel on the connector
+    struct channel_token
+    {
+        channel_token(ftx_websocket_connector_concept *host = nullptr,
+                      channel_iterator                 iter = {})
+        : host_(host)
+        , iter_(iter)
+        {
+        }
+
+        channel_token(channel_token const &) = delete;
+        channel_token(channel_token &&other) noexcept
+        : host_(std::exchange(other.host_, nullptr))
+        , iter_(std::exchange(other.iter_, {}))
+        {
+        }
+
+        channel_token &
+        operator=(channel_token const &) = delete;
+        channel_token &
+        operator=(channel_token &&) = delete;
+
+        ~channel_token()
+        {
+            if (host_)
+                host_->release_channel(iter_);
+        }
+
+        ftx_websocket_connector_concept *host_;
+        channel_iterator                 iter_;
+    };
+
+    asio::awaitable< channel_token >
+    acquire_channel(channel_market_pair const &index);
+
+    void
+    release_channel(channel_iterator iter);
+
   private:
     asio::awaitable< void >
     run();
@@ -135,7 +195,7 @@ struct ftx_websocket_connector_concept
     reconnect();
 
     asio::awaitable< void >
-    read_state(websocket_stream_variant                &ws,
+    read_state(websocket_stream_variant &               ws,
                async_circular_buffer< json::value, 1 > &pong_buffer);
 
     void
@@ -143,7 +203,7 @@ struct ftx_websocket_connector_concept
 
   private:
     asio::any_io_executor   exec_;
-    asio::ssl::context     &sslctx_;
+    asio::ssl::context &    sslctx_;
     ftx_websocket_key const args_;
 
     asio::cancellation_signal  stop_signal_;
@@ -159,6 +219,8 @@ struct ftx_websocket_connector_concept
         get_executor(),
         asio::steady_timer::time_point::max()
     };
+
+    channel_state_map channel_states_;
 
     // subscription management
     using subscribe_map = std::unordered_map< channel_market_pair,

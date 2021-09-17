@@ -10,6 +10,7 @@
 #ifndef BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_VENDOR_FTX_CHANNEL_MARKET_PAIR_HPP
 #define BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_VENDOR_FTX_CHANNEL_MARKET_PAIR_HPP
 
+#include <boost/connector/vendor/ftx/describe_operators.hpp>
 #include <boost/connector/vendor/ftx/equality.hpp>
 
 namespace boost::connector::vendor::ftx
