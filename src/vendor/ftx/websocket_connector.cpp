@@ -4,16 +4,10 @@
 
 namespace boost::connector::vendor::ftx
 {
-websocket_connector::websocket_connector(lifetime_ptr< ftx_websocket_connector_concept > lifetime)
+websocket_connector::websocket_connector(
+    lifetime_ptr< ftx_websocket_connector_concept > lifetime)
 : lifetime_(std::move(lifetime))
 {
-}
-
-void
-websocket_connector::on(channel_market_pair const &index, channel_slot slot)
-{
-    assert(lifetime_);
-    lifetime_->on(index, std::move(slot));
 }
 
 void
@@ -37,18 +31,25 @@ websocket_connector::get_executor() const -> executor_type const &
     return lifetime_->get_executor();
 }
 
-asio::awaitable<void>
-    websocket_connector::wait_ready()
+asio::awaitable< void >
+websocket_connector::wait_ready()
 {
     assert(lifetime_);
     return lifetime_->wait_ready();
 }
 
-asio::awaitable<void>
-    websocket_connector::wait_down()
+asio::awaitable< void >
+websocket_connector::wait_down()
 {
     assert(lifetime_);
     return lifetime_->wait_down();
+}
+
+ftx_websocket_connector_concept &
+websocket_connector::get_impl()
+{
+    assert(lifetime_);
+    return *lifetime_;
 }
 
 }   // namespace boost::connector::vendor::ftx

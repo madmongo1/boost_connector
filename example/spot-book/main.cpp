@@ -45,12 +45,19 @@ main()
                     connector::vendor::ftx::ftx_websocket_connector_concept >(
                     co_await asio::this_coro::executor, sslctx, key));
 
-            auto ladder = boost::connector::price_ladder(
+            auto ladder1 = boost::connector::price_ladder(
+                connector::make_lifetime_ptr<
+                    boost::connector::vendor::ftx::price_ladder_impl >(
+                    ftxconn));
+            auto ladder2 = boost::connector::price_ladder(
                 connector::make_lifetime_ptr<
                     boost::connector::vendor::ftx::price_ladder_impl >(
                     ftxconn));
 
             auto t = asio::steady_timer(co_await asio::this_coro::executor, 5s);
+            co_await t.async_wait(asio::use_awaitable);
+            ladder1.reset();
+            t.expires_after(5s);
             co_await t.async_wait(asio::use_awaitable);
         },
         asio::detached);

@@ -25,6 +25,9 @@ struct price_ladder
     /// @param ptr
     price_ladder(lifetime_ptr< interface::price_ladder_concept > ptr);
 
+    void
+    reset();
+
   private:
     lifetime_ptr< interface::price_ladder_concept > ptr_;
 };

@@ -24,6 +24,9 @@ async_latch::async_latch(executor_type exec, bool initial_set)
 asio::awaitable< void >
 async_latch::wait()
 {
+    if (is_set())
+        co_return;
+
     auto [ec] = co_await impl_.async_wait(
         asio::experimental::as_tuple(asio::use_awaitable));
     if (ec == asio::error::operation_aborted)
@@ -37,6 +40,12 @@ void
 async_latch::set()
 {
     impl_.expires_at(asio::steady_timer::time_point::min());
+}
+
+bool
+async_latch::is_set() const
+{
+    return impl_.expiry() == asio::steady_timer::time_point::min();
 }
 
 void

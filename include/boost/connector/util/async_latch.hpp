@@ -28,6 +28,9 @@ struct async_latch
     void
     set();
 
+    bool
+    is_set() const;
+
     void
     reset();
 

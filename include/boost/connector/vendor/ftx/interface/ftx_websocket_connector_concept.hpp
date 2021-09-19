@@ -13,12 +13,14 @@
 #include <boost/connector/util/hash_any.hpp>
 #include <boost/connector/util/hash_value.hpp>
 #include <boost/connector/vendor/ftx/channel_market_pair.hpp>
+#include <boost/connector/vendor/ftx/channel_state.hpp>
 #include <boost/connector/vendor/ftx/ftx_config.hpp>
-#include <boost/describe.hpp>
 #include <boost/json/value.hpp>
-#include <boost/signals2/signal.hpp>
+#include <boost/variant2/variant.hpp>
 
+#include <deque>
 #include <memory>
+#include <queue>
 #include <unordered_map>
 
 namespace boost::connector
@@ -60,8 +62,8 @@ struct ftx_websocket_connector_concept
     /// @param key is the set of arguments that uniquely ifdentify this
     /// connectior and parameterise the connection.
     ftx_websocket_connector_concept(boost::asio::any_io_executor exec,
-                                    boost::asio::ssl::context &  sslctx,
-                                    ftx_websocket_key const &    key);
+                                    boost::asio::ssl::context   &sslctx,
+                                    ftx_websocket_key const     &key);
 
     virtual void
     start() override final;
@@ -78,16 +80,6 @@ struct ftx_websocket_connector_concept
     get_executor() const;
 
     using channel_slot = std::function< void(json::value) >;
-
-    /// @brief Set the callback for a subscription event arriving from upstream
-    /// @note the callback will be called on the executor of this object
-    /// @param index a channel_market_pair indicatinf which channel and market
-    /// are of interest
-    /// @param cb a function object to be called when a message arrives
-    /// @pre This function must be called from within the executor returned by
-    /// get_executor()
-    void
-    on(channel_market_pair const &index, channel_slot cb);
 
     /// @brief Queue a message for send.
     /// @param payload  The message to send
@@ -106,6 +98,12 @@ struct ftx_websocket_connector_concept
     /// @return
     asio::awaitable< void >
     wait_ready();
+
+    /// @brief Instantaneous check whether the connection is up.
+    /// @pre must be called on this objects' executor
+    /// @return
+    bool
+    is_up() const;
 
     /// @brief Wait for the connection to be no longer established.
     /// @details If the connection is already not fully established, return
@@ -127,65 +125,16 @@ struct ftx_websocket_connector_concept
         }
     }
 
-    struct channel_state
-    {
-        using timer_t    = asio::steady_timer;
-        using time_point = timer_t::time_point;
-
-        channel_state(executor_type exec)
-        : cv(std::move(exec), time_point::max())
-        {
-        }
-
-        std::size_t        interest = 1;
-        bool               acquired = false;
-        asio::steady_timer cv;
-    };
-
-    using channel_state_map =
-        std::unordered_map< channel_market_pair,
-                            channel_state,
-                            boost::hash< channel_market_pair >,
-                            std::equal_to<> >;
-    using channel_iterator = channel_state_map::iterator;
-
-    /// @brief represents unique ownership of a channel on the connector
-    struct channel_token
-    {
-        channel_token(ftx_websocket_connector_concept *host = nullptr,
-                      channel_iterator                 iter = {})
-        : host_(host)
-        , iter_(iter)
-        {
-        }
-
-        channel_token(channel_token const &) = delete;
-        channel_token(channel_token &&other) noexcept
-        : host_(std::exchange(other.host_, nullptr))
-        , iter_(std::exchange(other.iter_, {}))
-        {
-        }
-
-        channel_token &
-        operator=(channel_token const &) = delete;
-        channel_token &
-        operator=(channel_token &&) = delete;
-
-        ~channel_token()
-        {
-            if (host_)
-                host_->release_channel(iter_);
-        }
-
-        ftx_websocket_connector_concept *host_;
-        channel_iterator                 iter_;
-    };
-
-    asio::awaitable< channel_token >
-    acquire_channel(channel_market_pair const &index);
+    channel_state_map::iterator
+    locate_channel(channel_market_pair const &index);
 
     void
-    release_channel(channel_iterator iter);
+    release_channel(channel_state_map::iterator iter);
+
+  private:
+    static std::string
+    make_subscribe_message(channel_market_pair const &index,
+                           boost::string_view         op);
 
   private:
     asio::awaitable< void >
@@ -195,7 +144,7 @@ struct ftx_websocket_connector_concept
     reconnect();
 
     asio::awaitable< void >
-    read_state(websocket_stream_variant &               ws,
+    read_state(websocket_stream_variant                &ws,
                async_circular_buffer< json::value, 1 > &pong_buffer);
 
     void
@@ -203,13 +152,13 @@ struct ftx_websocket_connector_concept
 
   private:
     asio::any_io_executor   exec_;
-    asio::ssl::context &    sslctx_;
+    asio::ssl::context     &sslctx_;
     ftx_websocket_key const args_;
 
     asio::cancellation_signal  stop_signal_;
     async_queue< std::string > write_queue_;
 
-    // Set this latch to instruct the current connection to immediately drop
+    // Call this function to instruct the current connection to immediately drop
     std::function< void() > on_drop_ = nullptr;
 
     // connection state
@@ -221,13 +170,6 @@ struct ftx_websocket_connector_concept
     };
 
     channel_state_map channel_states_;
-
-    // subscription management
-    using subscribe_map = std::unordered_map< channel_market_pair,
-                                              channel_slot,
-                                              util::hash_any,
-                                              std::equal_to<> >;
-    subscribe_map signals_;
 };
 
 auto

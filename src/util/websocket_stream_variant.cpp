@@ -13,15 +13,18 @@
 
 namespace boost::connector
 {
-websocket_stream_variant::websocket_stream_variant(asio::any_io_executor const &exec,
-                                                   asio::ssl::context          &sslctx,
-                                                   transport_type               type)
+websocket_stream_variant::websocket_stream_variant(
+    asio::any_io_executor const &exec,
+    asio::ssl::context          &sslctx,
+    transport_type               type)
 : vws_(construct(exec, sslctx, type))
 {
 }
 
 variant2::variant< ws_transport_layer, wss_transport_layer >
-websocket_stream_variant::construct(asio::any_io_executor const &exec, asio::ssl::context &sslctx, transport_type type)
+websocket_stream_variant::construct(asio::any_io_executor const &exec,
+                                    asio::ssl::context          &sslctx,
+                                    transport_type               type)
 {
     if (type == transport_type::tcp)
         return ws_transport_layer(exec);
@@ -35,7 +38,8 @@ asio::awaitable< asio::ip::tcp::resolver::results_type >
 resolve(std::string const &host, std::string const &service)
 {
     auto resolver = asio::ip::tcp::resolver(co_await asio::this_coro::executor);
-    co_return co_await resolver.async_resolve(host, service, asio::use_awaitable);
+    co_return co_await resolver.async_resolve(
+        host, service, asio::use_awaitable);
 }
 
 tcp_transport_layer
@@ -72,7 +76,8 @@ connect_range(asio::ip::tcp::resolver::results_type::const_iterator first,
     if (next == last)
         co_return co_await connect(first->endpoint());
     else
-        co_return selected(co_await(connect(first->endpoint()) || connect_range(next, last)));
+        co_return selected(
+            co_await(connect(first->endpoint()) || connect_range(next, last)));
 }
 
 asio::awaitable< tcp_transport_layer >
@@ -83,7 +88,9 @@ connect_one(asio::ip::tcp::resolver::results_type results)
 }   // namespace
 
 asio::awaitable< void >
-websocket_stream_variant::connect(std::string const &host, std::string const &service, std::string const &target)
+websocket_stream_variant::connect(std::string const &host,
+                                  std::string const &service,
+                                  std::string const &target)
 try
 {
     std::cout << "websocket_stream_variant::connect - entry\n";
@@ -96,7 +103,10 @@ try
         .slot()
         .assign([this](asio::cancellation_type) { this->tcp_layer().close(); });
 
-    co_await visit([&host, &target](auto &ws) { return ws.async_handshake(host, target, asio::use_awaitable); }, vws_);
+    co_await visit(
+        [&host, &target](auto &ws)
+        { return ws.async_handshake(host, target, asio::use_awaitable); },
+        vws_);
     std::cout << "ftx_websocket_connector::reconnect() - create websocket\n";
 
     std::cout << "websocket_stream_variant::connect - success\n";
@@ -137,7 +147,9 @@ websocket_stream_variant::get_executor() -> executor_type
 asio::awaitable< void >
 websocket_stream_variant::close(beast::websocket::close_reason reason)
 {
-    return visit([reason](auto &ws) { return ws.async_close(reason, asio::use_awaitable); }, vws_);
+    return visit([reason](auto &ws)
+                 { return ws.async_close(reason, asio::use_awaitable); },
+                 vws_);
 }
 
 bool
@@ -190,6 +202,29 @@ websocket_stream_variant::read()
     // clang-format on
 }
 
+asio::awaitable< std::tuple< error_code, websocket_message > >
+websocket_stream_variant::async_read()
+{
+    // For now, we will not handle cancellation. We will rely on the
+    // caller to handle it by calling close()
+
+    return visit(
+        [](auto &ws)
+            -> asio::awaitable< std::tuple< error_code, websocket_message > >
+        {
+            auto msg        = websocket_message();
+            auto [ec, size] = co_await ws.async_read(
+                msg.as_buffer(),
+                asio::experimental::as_tuple(asio::use_awaitable));
+
+            if (!ec)
+                msg.set_binary(ws.got_binary());
+
+            co_return std::make_tuple(ec, std::move(msg));
+        },
+        vws_);
+}
+
 asio::awaitable< void >
 websocket_stream_variant::tls_handshake(std::string const &hostname)
 {
@@ -198,30 +233,36 @@ websocket_stream_variant::tls_handshake(std::string const &hostname)
     auto &tls = get< wss_transport_layer >(vws_).next_layer();
 
     if (!SSL_set_tlsext_host_name(tls.native_handle(), hostname.c_str()))
-        throw system_error(error_code { static_cast< int >(::ERR_get_error()), asio::error::get_ssl_category() });
+        throw system_error(error_code { static_cast< int >(::ERR_get_error()),
+                                        asio::error::get_ssl_category() });
 
     (co_await asio::this_coro::cancellation_state)
         .slot()
         .assign(
             [&tls](asio::cancellation_type)
             {
-                // Note that since we have not modified the default filter, the only
-                // cancellation_type that will be presented to the slot will
-                // be `terminal`
+                // Note that since we have not modified the default filter, the
+                // only cancellation_type that will be presented to the slot
+                // will be `terminal`
 
-                // If we are cancelled, all we can do it close the underlying socket, thereby nuking the entire
-                // TLS connection.
+                // If we are cancelled, all we can do it close the underlying
+                // socket, thereby nuking the entire TLS connection.
                 tls.next_layer().close();
             });
 
-    co_await tls.async_handshake(asio::ssl::stream_base::client, asio::use_awaitable);
+    co_await tls.async_handshake(asio::ssl::stream_base::client,
+                                 asio::use_awaitable);
 }
 
 void
 websocket_stream_variant::replace_tcp(tcp_transport_layer &&tcp)
 {
-    auto &layer = visit([](auto &ws) -> tcp_transport_layer & { return beast::get_lowest_layer(ws); }, vws_);
-    layer       = std::move(tcp);
+    auto &layer = visit(
+        [](auto &ws) -> tcp_transport_layer & {
+            return beast::get_lowest_layer(ws);
+        },
+        vws_);
+    layer = std::move(tcp);
 }
 
 }   // namespace boost::connector

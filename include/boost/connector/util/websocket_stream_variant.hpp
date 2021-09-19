@@ -7,6 +7,7 @@
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket/stream.hpp>
+#include <boost/connector/config/error.hpp>
 #include <boost/connector/util/transport_type.hpp>
 #include <boost/utility/string_view.hpp>
 #include <boost/variant2/variant.hpp>
@@ -93,6 +94,9 @@ struct websocket_stream_variant
 
     asio::awaitable< websocket_message >
     read();
+
+    asio::awaitable< std::tuple< error_code, websocket_message > >
+    async_read();
 
   private:
     static variant2::variant< ws_transport_layer, wss_transport_layer >

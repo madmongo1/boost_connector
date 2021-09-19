@@ -38,33 +38,12 @@ struct price_ladder_impl
     asio::awaitable< void >
     run();
 
-    struct connection_down
-    {
-    };
-    struct subscribe_confirmed
-    {
-    };
-    struct unsubscribe_confirmed
-    {
-    };
-    struct invalid_response
-    {
-        json::value response;
-    };
-    using subscribe_event = variant2::
-        variant< connection_down, subscribe_confirmed, invalid_response >;
-
-    asio::awaitable< subscribe_event >
-    await_subscribe_response(frame_buffer_type &frame_buffer);
-
-    using monitor_event = variant2::
-        variant< connection_down, invalid_response, unsubscribe_confirmed >;
-
-    asio::awaitable< monitor_event >
-    monitor_subscription(frame_buffer_type &frame_buffer);
-
     std::string
     build_ident() const;
+
+    std::string
+    subscribe_message(boost::string_view action);
+
 
   private:
     websocket_connector   connection_;

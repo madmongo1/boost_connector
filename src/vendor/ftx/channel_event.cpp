@@ -7,18 +7,9 @@
 // Official repository: https://github.com/madmongo1/router
 //
 
-#include <boost/connector/price_ladder.hpp>
+#include <boost/connector/vendor/ftx/channel_event.hpp>
 
-namespace boost::connector
+namespace boost::connector::vendor::ftx
 {
-price_ladder::price_ladder(lifetime_ptr< interface::price_ladder_concept > ptr)
-: ptr_(std::move(ptr))
-{
+
 }
-
-void price_ladder::reset()
-{
-    ptr_.reset();
-}
-
-}   // namespace boost::connector

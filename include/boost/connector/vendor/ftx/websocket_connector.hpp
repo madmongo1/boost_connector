@@ -32,22 +32,6 @@ struct websocket_connector
     executor_type const &
     get_executor() const;
 
-    /// @brief Set the callback slot for the given channel/market pair.
-    /// @param index
-    /// @param slot
-    /// @pre This function must be called while being executed by the
-    /// websocket_connector's executor.
-    /// @note The callback will be called within the context of the
-    /// websocket_connector's executor. It is called directly from within an IO
-    /// loop so should not perform any long-running operations.
-    /// @note if the websocket connection state becomes disconnected, the slot
-    /// is destroyed.
-    /// @note if this function is called while the websocket_connection is not
-    /// "up", the callback will not be registered
-    ///
-    void
-    on(channel_market_pair const &index, channel_slot slot);
-
     /// @brief Queue a text payload to be sent if the connection is up.
     /// @details The payload will be queued for send if the connection is up. If
     /// the connection drops before the payload has been sent, the payload will
@@ -80,6 +64,12 @@ struct websocket_connector
     /// place.
     void
     drop();
+
+    /// @brief Get a reference to the underlying implementation
+    /// @return ftx_websocket_connector_concept &
+    /// @pre Object not empty
+    ftx_websocket_connector_concept &
+    get_impl();
 
   private:
     lifetime_ptr< ftx_websocket_connector_concept > lifetime_;

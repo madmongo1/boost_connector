@@ -20,8 +20,8 @@ namespace boost::connector::vendor::ftx
 
 ftx_websocket_connector_concept::ftx_websocket_connector_concept(
     boost::asio::any_io_executor exec,
-    boost::asio::ssl::context &  sslctx,
-    ftx_websocket_key const &    key)
+    boost::asio::ssl::context   &sslctx,
+    ftx_websocket_key const     &key)
 : exec_(std::move(exec))
 , sslctx_(sslctx)
 , args_(key)
@@ -118,7 +118,7 @@ ftx_auth_frame(ftx_credentials const &auth)
 }
 
 asio::awaitable< void >
-ftx_write_state(websocket_stream_variant &  ws,
+ftx_write_state(websocket_stream_variant   &ws,
                 async_queue< std::string > &write_queue)
 {
     for (;;)
@@ -159,7 +159,6 @@ try
         co_await asio::this_coro::executor);
 
     write_queue_.clear();
-    signals_.clear();
 
     if (args_.auth.has_auth())
         write_queue_.push(ftx_auth_frame(args_.auth));
@@ -211,7 +210,7 @@ catch (std::exception &e)
 
 asio::awaitable< void >
 ftx_websocket_connector_concept::read_state(
-    websocket_stream_variant &               ws,
+    websocket_stream_variant                &ws,
     async_circular_buffer< json::value, 1 > &pong_buffer)
 try
 {
@@ -234,30 +233,57 @@ try
     {
         auto state = co_await asio::this_coro::cancellation_state;
         state.slot().assign(read_cancel_handler);
-        auto msg = co_await ws.read();
-        if (msg.is_binary())
-            throw std::runtime_error(
-                "ftx_websocket_connector::read_state - binary frame received");
-        auto  jframe = json::parse(msg.as_string());
-        auto &o      = jframe.as_object();
-        auto &type   = o.at("type").as_string();
-        if (type == "pong")
-            pong_buffer.push(std::move(jframe));
-        else
+        auto [ec, msg] = co_await ws.async_read();
+        if (ec)
         {
-            auto const index = channel_market_pair {
-                .channel = json::value_to< std::string >(o.at("channel")),
-                .market  = json::value_to< std::string >(o.at("market"))
-            };
-            auto i = signals_.find(index);
-            if (i == signals_.end())
-                std::cout << "ftx_websocket_connector_concept::read_state - "
-                             "unexpected response: "
-                          << msg << '\n';
-            else if (i->second)
+            for (auto &[key, cs] : channel_states_)
+                if (cs.acquired)
+                    cs.on_event(connection_down {});
+            std::cout << __func__ << "() - exit with read error: " << ec
+                      << "\n";
+            co_return;
+        }
+        if (msg.is_binary())
+        {
+            std::cout << __func__ << "() - ignoring binary message: " << msg
+                      << "\n";
+            continue;
+        }
+
+        try
+        {
+            auto  jframe = json::parse(msg.as_string());
+            auto &o      = jframe.as_object();
+            auto &type   = o.at("type").as_string();
+            if (type == "pong")
+                pong_buffer.push(std::move(jframe));
+            else
             {
-                i->second(std::move(jframe));
+                auto const index = channel_market_pair {
+                    .channel = json::value_to< std::string >(o.at("channel")),
+                    .market  = json::value_to< std::string >(o.at("market"))
+                };
+                auto i = channel_states_.find(index);
+                if (i == channel_states_.end() || !i->second.acquired)
+                    std::cout
+                        << "ftx_websocket_connector_concept::read_state - "
+                           "unexpected response: "
+                        << msg << '\n';
+                else
+                {
+                    // queue the received frame in the channel state and notify
+                    // the condition variable that there is one or more frames
+                    // waiting
+                    i->second.on_event(std::move(jframe));
+                }
             }
+        }
+        catch (std::exception &e)
+        {
+            std::cout << "ftx_websocket_connector_concept::read_state - "
+                         "parse error in: "
+                      << msg << '\n';
+            ws.tcp_layer().close();
         }
     }
     std::cout << __func__ << "() - exit\n";
@@ -269,38 +295,36 @@ catch (std::exception &e)
 }
 
 void
-ftx_websocket_connector_concept::on(channel_market_pair const &channel,
-                                    channel_slot               cb)
-{
-    util::check_executor(get_executor());
-
-    if (auto i = signals_.find(channel); cb)
-    {
-        if (i == signals_.end())
-            i = signals_.emplace(channel, std::move(cb)).first;
-        else
-            i->second = std::move(cb);
-    }
-    else if (i != signals_.end())
-        signals_.erase(i);
-}
-
-void
 ftx_websocket_connector_concept::notify_connection_state(connection_state s)
 {
-    if (s != connection_state_)
-    {
-        connection_state_ = s;
-        connection_state_cv_.cancel();
-    }
+    assert(s != connection_state_);
+
+    connection_state_ = s;
+    connection_state_cv_.cancel();
+
+    for (auto &[ident, state] : channel_states_)
+        if (state.acquired)
+            if (s == connection_state::up)
+                state.on_event(connection_up());
+            else
+                state.on_event(connection_down());
 }
 
 asio::awaitable< void >
 ftx_websocket_connector_concept::wait_ready()
 {
-    while (connection_state_ != connection_state::up)
+    assert(util::check_executor(get_executor()));
+
+    while (!is_up())
         co_await(connection_state_cv_.async_wait(
             asio::experimental::as_tuple(asio::use_awaitable)));
+}
+
+bool
+ftx_websocket_connector_concept::is_up() const
+{
+    assert(util::check_executor(get_executor()));
+    return connection_state_ == connection_state::up;
 }
 
 asio::awaitable< void >
@@ -312,61 +336,58 @@ ftx_websocket_connector_concept::wait_down()
 }
 
 auto
-ftx_websocket_connector_concept::acquire_channel(
-    channel_market_pair const &index) -> asio::awaitable< channel_token >
-try
+ftx_websocket_connector_concept::locate_channel(
+    channel_market_pair const &index) -> channel_state_map::iterator
 {
+    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
+              << ")\n";
     assert(util::check_executor(get_executor()));
 
-    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
-              << ") - entry\n";
-
     // find or create the channel state and express interest
-
     auto iter = channel_states_.find(index);
     if (iter == channel_states_.end())
-        iter = channel_states_.emplace(index, get_executor()).first;
-    else
-        ++iter->second.interest;
+        iter = channel_states_
+                   .emplace(index,
+                            channel_state {
+                                .cv = asio::steady_timer(
+                                    get_executor(),
+                                    asio::steady_timer::time_point::max()) })
+                   .first;
 
     auto &state = iter->second;
-
-    while (state.acquired)
-    {
-        co_await state.cv.async_wait(
-            asio::experimental::as_tuple(asio::use_awaitable));
-    }
-
-    state.acquired = true;
-
-    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
-              << ") - exit ok\n";
-
-    co_return channel_token { this, iter };
-}
-catch (std::exception &e)
-{
-    std::cout << "ftx_websocket_connector_concept::acquire_channel(" << index
-              << ") - exception: " << e.what() << "\n";
-    assert(false);
-    throw;
+    ++state.interest;
+    return iter;
 }
 
 void
-ftx_websocket_connector_concept::release_channel(channel_iterator iter)
+ftx_websocket_connector_concept::release_channel(
+    channel_state_map::iterator iter)
 {
     std::cout << "ftx_websocket_connector_concept::release_channel("
-              << iter->first << ") - entry\n";
+              << iter->first << ")\n";
     assert(util::check_executor(get_executor()));
-    auto &state = iter->second;
+    auto &[index, state] = *iter;
+
+    // mark the state as unacquired
     assert(state.acquired);
     state.acquired = false;
-    state.cv.cancel_one();   // release one waiter
+
+    // reduce interest
+    assert(state.interest);
     if (--state.interest == 0)
     {
+        // if intrest reduced to zero, destroy the state
         std::cout << "ftx_websocket_connector_concept::release_channel("
                   << iter->first << ") - erase state\n";
         channel_states_.erase(iter);
+    }
+    else
+    {
+        // if there is remaining interest in this channel, unblock the next
+        // waiting acquire operation.
+        std::cout << "ftx_websocket_connector_concept::release_channel("
+                  << iter->first << ") - release next waiter\n";
+        state.cv.cancel_one();   // release one waiter
     }
 }
 
