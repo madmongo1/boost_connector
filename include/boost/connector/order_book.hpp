@@ -7,8 +7,8 @@
 // Official repository: https://github.com/madmongo1/router
 //
 
-#ifndef BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_PRICE_LADDER_HPP
-#define BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_PRICE_LADDER_HPP
+#ifndef BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_ORDER_BOOK_HPP
+#define BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_ORDER_BOOK_HPP
 
 #include <boost/connector/entity/lifetime_ptr.hpp>
 
@@ -16,20 +16,20 @@ namespace boost::connector
 {
 namespace interface
 {
-struct price_ladder_concept;
+struct order_book_concept;
 }
 /// @brief A handle to the public lifetime of a interface::pricer_ladder_concept
-struct price_ladder
+struct order_book
 {
     /// @brief Construct from lifetime pointer to implementation interface
     /// @param ptr
-    price_ladder(lifetime_ptr< interface::price_ladder_concept > ptr);
+    order_book(lifetime_ptr< interface::order_book_concept > ptr);
 
     void
     reset();
 
   private:
-    lifetime_ptr< interface::price_ladder_concept > ptr_;
+    lifetime_ptr< interface::order_book_concept > ptr_;
 };
 }   // namespace boost::connector
-#endif   // BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_PRICE_LADDER_HPP
+#endif   // BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_ORDER_BOOK_HPP

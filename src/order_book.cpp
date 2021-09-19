@@ -7,16 +7,17 @@
 // Official repository: https://github.com/madmongo1/router
 //
 
-#include <boost/connector/price_ladder.hpp>
+#include <boost/connector/order_book.hpp>
 
 namespace boost::connector
 {
-price_ladder::price_ladder(lifetime_ptr< interface::price_ladder_concept > ptr)
+order_book::order_book(lifetime_ptr< interface::order_book_concept > ptr)
 : ptr_(std::move(ptr))
 {
 }
 
-void price_ladder::reset()
+void
+order_book::reset()
 {
     ptr_.reset();
 }
