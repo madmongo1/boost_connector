@@ -1,7 +1,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/connector/entity/entity_cache.hpp>
-#include <boost/connector/price_ladder.hpp>
+#include <boost/connector/order_book.hpp>
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
 #include <boost/connector/vendor/ftx/price_ladder_impl.hpp>
 
@@ -37,28 +37,34 @@ main()
         ioc.get_executor(),
         [&sslctx]() -> asio::awaitable< void >
         {
+            using namespace connector;
             auto key =
-                connector::ftx_websocket_key { .url  = "wss://ftx.com/ws/",
-                                               .auth = {} };
-            auto ftxconn = boost::connector::vendor::ftx::websocket_connector(
-                connector::make_lifetime_ptr<
-                    connector::vendor::ftx::ftx_websocket_connector_concept >(
+                ftx_websocket_key { .url = "wss://ftx.com/ws/", .auth = {} };
+            auto ftxconn = vendor::ftx::websocket_connector(
+                make_lifetime_ptr<
+                    vendor::ftx::ftx_websocket_connector_concept >(
                     co_await asio::this_coro::executor, sslctx, key));
 
-            auto ladder1 = boost::connector::price_ladder(
-                connector::make_lifetime_ptr<
-                    boost::connector::vendor::ftx::price_ladder_impl >(
-                    ftxconn));
-            auto ladder2 = boost::connector::price_ladder(
-                connector::make_lifetime_ptr<
-                    boost::connector::vendor::ftx::price_ladder_impl >(
-                    ftxconn));
+            auto btcs = std::vector< order_book >();
+            auto eths = std::vector< order_book >();
+            for (int i = 0; i < 10; ++i)
+            {
+                btcs.emplace_back(
+                    make_lifetime_ptr< vendor::ftx::price_ladder_impl >(
+                        ftxconn, "BTC/USD"));
+                eths.emplace_back(
+                    make_lifetime_ptr< vendor::ftx::price_ladder_impl >(
+                        ftxconn, "ETH/USD"));
+            }
 
-            auto t = asio::steady_timer(co_await asio::this_coro::executor, 5s);
-            co_await t.async_wait(asio::use_awaitable);
-            ladder1.reset();
-            t.expires_after(5s);
-            co_await t.async_wait(asio::use_awaitable);
+            auto t = asio::steady_timer(co_await asio::this_coro::executor);
+            for (int i = 0; i < 10; ++i)
+            {
+                t.expires_after(5s);
+                co_await t.async_wait(asio::use_awaitable);
+                btcs[i].reset();
+                eths[i].reset();
+            }
         },
         asio::detached);
 

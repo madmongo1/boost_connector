@@ -1,12 +1,11 @@
-#ifndef BOOST_CONNECTOR__INTERFACE__PRICE_LADDER__HPP
-#define BOOST_CONNECTOR__INTERFACE__PRICE_LADDER__HPP
+#ifndef BOOST_CONNECTOR__INTERFACE__ORDER_BOOK_CONCEPT__HPP
+#define BOOST_CONNECTOR__INTERFACE__ORDER_BOOK_CONCEPT__HPP
 
 #include <boost/connector/entity/entity_impl_concept.hpp>
 
 namespace boost::connector::interface
 {
-struct price_ladder_concept
-: entity_impl_concept
+struct order_book_concept : entity_impl_concept
 {
     // entity_impl_concept
     virtual void
