@@ -22,20 +22,12 @@ namespace boost::connector::vendor::ftx
 struct order_book_impl final
 : interface::order_book_concept
 , upstream_subscription_impl
-, std::enable_shared_from_this< order_book_impl >
 {
     /// @brief Construct a pricer_ladder_impl
     /// @param connection is a websocket_connector handle containing a valid
     /// entity lifetime
     /// @param market is the FTX-specific market name
     order_book_impl(websocket_connector connection, std::string market);
-
-    // interface::price_ladder_concept
-    void
-    start() override;
-
-    void
-    stop() override;
 };
 
 }   // namespace boost::connector::vendor::ftx

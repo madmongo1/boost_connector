@@ -7,12 +7,6 @@ namespace boost::connector
 {
 struct entity_impl_concept
 {
-    virtual void
-    start() = 0;
-
-    virtual void
-    stop() = 0;
-
     virtual ~entity_impl_concept() = default;
 };
 

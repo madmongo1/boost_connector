@@ -23,23 +23,6 @@
 
 namespace boost::connector::vendor::ftx
 {
-void
-order_book_impl::start()
-{
-    // spawn the run coroutine on the connector's executor while holding on to
-    // the private lifetime of the implementation
-    asio::co_spawn(connection_.get_executor(),
-                   run(),
-                   [self = shared_from_this()](std::exception_ptr) {});
-}
-
-void
-order_book_impl::stop()
-{
-    asio::dispatch(connection_.get_executor(),
-                   [self = shared_from_this()] { self->stop_latch_.set(); });
-}
-
 order_book_impl::order_book_impl(websocket_connector connection,
                                      std::string         market)
 : upstream_subscription_impl(
