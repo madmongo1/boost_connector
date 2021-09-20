@@ -3,7 +3,7 @@
 #include <boost/connector/entity/entity_cache.hpp>
 #include <boost/connector/order_book.hpp>
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
-#include <boost/connector/vendor/ftx/price_ladder_impl.hpp>
+#include <boost/connector/vendor/ftx/order_book_impl.hpp>
 
 #include <iostream>
 
@@ -50,10 +50,10 @@ main()
             for (int i = 0; i < 10; ++i)
             {
                 btcs.emplace_back(
-                    make_lifetime_ptr< vendor::ftx::price_ladder_impl >(
+                    make_lifetime_ptr< vendor::ftx::order_book_impl >(
                         ftxconn, "BTC/USD"));
                 eths.emplace_back(
-                    make_lifetime_ptr< vendor::ftx::price_ladder_impl >(
+                    make_lifetime_ptr< vendor::ftx::order_book_impl >(
                         ftxconn, "ETH/USD"));
             }
 
