@@ -25,6 +25,23 @@ upstream_subscription_impl::upstream_subscription_impl(
 {
 }
 
+void
+upstream_subscription_impl::start()
+{
+    // spawn the run coroutine on the connector's executor while holding on to
+    // the private lifetime of the implementation
+    asio::co_spawn(connection_.get_executor(),
+                   run(),
+                   [self = shared_from_this()](std::exception_ptr) {});
+}
+
+void
+upstream_subscription_impl::stop()
+{
+    asio::dispatch(connection_.get_executor(),
+                   [self = shared_from_this()] { self->stop_latch_.set(); });
+}
+
 std::string
 upstream_subscription_impl::build_ident() const
 {

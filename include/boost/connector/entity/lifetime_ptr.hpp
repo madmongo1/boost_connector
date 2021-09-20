@@ -1,110 +1,55 @@
 #ifndef BOOST_CONNECTOR__ENTITY__LIFETIME_PTR__HPP
 #define BOOST_CONNECTOR__ENTITY__LIFETIME_PTR__HPP
 
-#include <boost/connector/entity/entity_lifetime_impl.hpp>
+#include <memory>
 
 namespace boost::connector
 {
-template < class EntityImpl >
-struct lifetime_ptr;
+template < class T >
+using lifetime_ptr = std::shared_ptr< T >;
 
-template < class EntityImpl >
-struct weak_lifetime_ptr;
+template < class T >
+using weak_lifetime_ptr = std::weak_ptr< T >;
 
-template < class EntityImpl >
-struct lifetime_ptr
+namespace detail
 {
-    explicit lifetime_ptr(std::shared_ptr< entity_lifetime_impl > impl = {})
-    : ptr_(nullptr)
-    , lifetime_impl_(std::move(impl))
-    {
-        if (lifetime_impl_)
-            ptr_ = static_cast< EntityImpl * >(lifetime_impl_->entity_address());
-    }
-
-    template < class U, std::enable_if_t< std::is_convertible_v< U *, EntityImpl * > > * = nullptr >
-    lifetime_ptr(lifetime_ptr< U > const &src)
-    : ptr_(static_cast< U * >(src.get()))
-    , lifetime_impl_(src.get_lifetime_impl())
-    {
-    }
-
-    EntityImpl *
-    get() const
-    {
-        return ptr_;
-    }
-
-    operator bool() const
-    {
-        return get() != nullptr;
-    }
-
-
-    EntityImpl *
-    operator->() const
-    {
-        return get();
-    }
-
-    EntityImpl &
-    operator*() const
-    {
-        return *get();
-    }
-
+template < class T >
+struct lifetime_deleter
+{
     void
-    reset()
+    operator()(bool *pb) const noexcept
     {
-        lifetime_impl_.reset();
-        ptr_ = nullptr;
+        if (*pb)
+            private_impl->stop();
+        delete pb;
     }
 
-    template < class U >
-    friend struct weak_lifetime_ptr;
-
-    std::shared_ptr< entity_lifetime_impl > const &
-    get_lifetime_impl() const
-    {
-        return lifetime_impl_;
-    }
-
-  private:
-    EntityImpl                             *ptr_;
-    std::shared_ptr< entity_lifetime_impl > lifetime_impl_;
+    std::shared_ptr< T > private_impl {};
 };
 
-template < class EntityImpl >
-struct weak_lifetime_ptr
+}   // namespace detail
+
+template < class T >
+lifetime_ptr< T >
+make_lifetime_ptr(std::shared_ptr< T > const &impl)
 {
-    weak_lifetime_ptr()
-    : lifetime_impl_()
-    {
-    }
+    // Build a deleter containing a shared_ptr to the original impl
+    auto deleter = detail::lifetime_deleter< T > { .private_impl = impl };
 
-    weak_lifetime_ptr(lifetime_ptr< EntityImpl > const &src)
-    : lifetime_impl_(src.lifetime_impl_)
-    {
-    }
+    auto proxy = std::shared_ptr< bool >(new bool(false), std::move(deleter));
 
-    lifetime_ptr< EntityImpl >
-    lock()
-    {
-        return lifetime_ptr< EntityImpl >(lifetime_impl_.lock());
-    }
+    impl->start();
+    *proxy = true;
 
-  private:
-    std::weak_ptr< entity_lifetime_impl > lifetime_impl_;
-};
+    return lifetime_ptr< T >(proxy, impl.get());
+}
 
-template < class EntityImpl, class... Args >
-lifetime_ptr< EntityImpl >
+template < class T, class... Args >
+lifetime_ptr< T >
 make_lifetime_ptr(Args &&...args)
 {
-    auto impl = std::make_shared< EntityImpl >(std::forward< Args >(args)...);
-    auto lifetime_base =
-        std::make_shared< entity_lifetime_impl >(std::static_pointer_cast< entity_impl_concept >(impl));
-    return lifetime_ptr< EntityImpl >(std::move(lifetime_base));
+    auto impl = std::make_shared< T >(std::forward< Args >(args)...);
+    return make_lifetime_ptr(impl);
 }
 
 }   // namespace boost::connector

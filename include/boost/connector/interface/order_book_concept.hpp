@@ -7,12 +7,7 @@ namespace boost::connector::interface
 {
 struct order_book_concept : entity_impl_concept
 {
-    // entity_impl_concept
-    virtual void
-    start() override = 0;
-
-    virtual void
-    stop() override = 0;
+    virtual ~order_book_concept() = default;
 };
 }   // namespace boost::connector::interface
 

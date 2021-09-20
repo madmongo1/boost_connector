@@ -44,7 +44,7 @@ BOOST_DEFINE_ENUM_CLASS(connection_state, down, up)
 /// will allow itself to be destoyed once all internal outstanding asynchrnous
 /// operations are completed.
 ///
-struct ftx_websocket_connector_concept
+struct ftx_websocket_connector_concept final
 : entity_impl_concept
 , std::enable_shared_from_this< ftx_websocket_connector_concept >
 {
@@ -65,11 +65,11 @@ struct ftx_websocket_connector_concept
                                     boost::asio::ssl::context   &sslctx,
                                     ftx_websocket_key const     &key);
 
-    virtual void
-    start() override final;
+    void
+    start();
 
-    virtual void
-    stop() override final;
+    void
+    stop();
 
     /// return a reference to the internal executor.
     ///

@@ -16,11 +16,19 @@
 namespace boost::connector::vendor::ftx
 {
 struct upstream_subscription_impl
+: std::enable_shared_from_this< upstream_subscription_impl >
+
 {
     upstream_subscription_impl(websocket_connector connection,
                                channel_market_pair topic);
 
-  public:
+    // provide start and stop for make_lifetime_ptr<>
+    void
+    start();
+
+    void
+    stop();
+
     inline channel_market_pair const &
     topic() const;
 
@@ -85,10 +93,10 @@ struct upstream_subscription_impl
         std::string
         make_subscribe_message(boost::string_view action) const;
 
-        upstream_subscription_impl      &algo;
+        upstream_subscription_impl &     algo;
         ftx_websocket_connector_concept &connection;
         channel_state_map::iterator      csiter;
-        util::async_latch               &closed_latch;
+        util::async_latch &              closed_latch;
         enum state_type
         {
             down,
