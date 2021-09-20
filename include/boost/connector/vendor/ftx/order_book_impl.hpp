@@ -19,16 +19,16 @@
 namespace boost::connector::vendor::ftx
 {
 /// @brief Implement the concept of a price ladder for FTX
-struct price_ladder_impl final
+struct order_book_impl final
 : interface::order_book_concept
 , upstream_subscription_impl
-, std::enable_shared_from_this< price_ladder_impl >
+, std::enable_shared_from_this< order_book_impl >
 {
     /// @brief Construct a pricer_ladder_impl
     /// @param connection is a websocket_connector handle containing a valid
     /// entity lifetime
     /// @param market is the FTX-specific market name
-    price_ladder_impl(websocket_connector connection, std::string market);
+    order_book_impl(websocket_connector connection, std::string market);
 
     // interface::price_ladder_concept
     void

@@ -7,7 +7,7 @@
 // Official repository: https://github.com/madmongo1/router
 //
 
-#include "boost/connector/vendor/ftx/price_ladder_impl.hpp"
+#include "boost/connector/vendor/ftx/order_book_impl.hpp"
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/compose.hpp>
@@ -16,7 +16,7 @@
 #include <boost/connector/config/error.hpp>
 #include <boost/connector/util/async_circular_buffer.hpp>
 #include <boost/connector/util/async_void.hpp>
-#include <boost/connector/vendor/ftx/price_ladder_impl.hpp>
+#include <boost/connector/vendor/ftx/order_book_impl.hpp>
 #include <boost/json.hpp>
 
 #include <iostream>
@@ -24,7 +24,7 @@
 namespace boost::connector::vendor::ftx
 {
 void
-price_ladder_impl::start()
+order_book_impl::start()
 {
     // spawn the run coroutine on the connector's executor while holding on to
     // the private lifetime of the implementation
@@ -34,13 +34,13 @@ price_ladder_impl::start()
 }
 
 void
-price_ladder_impl::stop()
+order_book_impl::stop()
 {
     asio::dispatch(connection_.get_executor(),
                    [self = shared_from_this()] { self->stop_latch_.set(); });
 }
 
-price_ladder_impl::price_ladder_impl(websocket_connector connection,
+order_book_impl::order_book_impl(websocket_connector connection,
                                      std::string         market)
 : upstream_subscription_impl(
       std::move(connection),
