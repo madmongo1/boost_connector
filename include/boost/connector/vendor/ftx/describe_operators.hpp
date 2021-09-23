@@ -10,9 +10,9 @@
 #ifndef BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_VENDOR_FTX_DESCRIBE_OPERATORS_HPP
 #define BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_VENDOR_FTX_DESCRIBE_OPERATORS_HPP
 
+#include <boost/connector/util/describe_operators.hpp>
 #include <boost/connector/util/equals.hpp>
 #include <boost/connector/util/hash_value.hpp>
-#include <boost/connector/util/ostream.hpp>
 
 namespace boost::connector::vendor::ftx
 {

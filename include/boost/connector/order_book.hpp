@@ -11,13 +11,10 @@
 #define BOOST_CONNECTOR_INCLUDE_BOOST_CONNECTOR_ORDER_BOOK_HPP
 
 #include <boost/connector/entity/lifetime_ptr.hpp>
+#include <boost/connector/interface/order_book_concept.hpp>
 
 namespace boost::connector
 {
-namespace interface
-{
-struct order_book_concept;
-}
 /// @brief A handle to the public lifetime of a interface::pricer_ladder_concept
 struct order_book
 {
