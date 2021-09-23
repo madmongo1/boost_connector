@@ -41,6 +41,6 @@ TEST_CASE("boost::connector::bid_ladder")
 
     bids.set(10002, 150);
     REQUIRE(bids.size() == 2);
-    CHECK(bids[0] == orderbook_level { .price = 10002, .depth = 250 });
+    CHECK(bids[0] == orderbook_level { .price = 10002, .depth = 150 });
     CHECK(bids[1] == orderbook_level { .price = 10001, .depth = 25 });
 }
