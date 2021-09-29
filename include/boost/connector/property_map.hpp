@@ -88,7 +88,7 @@ struct property_value_jump_table
 {
     std::type_info const &(*info)();
     void (*destroy)(void *o);
-    void (*move)(void *dest, void *source);
+    void (*move_construct)(void *dest, void *source);
     bool (*equal)(void const *l, void const *r);
     std::size_t (*hash_value)(void const *l);
     void (*to_ostream)(std::ostream &os, void const *arg);
@@ -101,7 +101,7 @@ inline const property_value_jump_table property_value_void_jump_table = {
     },
     .destroy = [](void *) {
     },
-    .move = [](void *, void *) {
+    .move_construct = [](void *, void *) {
     },
     .equal = [](void const *, void const *) {
         return true;
@@ -124,7 +124,7 @@ const property_value_jump_table property_value_short_jump_table = {
         T* p  = static_cast< T* >(vp);
         p->~T();
     },
-    .move = [](void *vpdest, void *vpsource)
+    .move_construct = [](void *vpdest, void *vpsource)
     {
         T* pdest= static_cast< T* >(vpdest);
         T* psource= static_cast< T* >(vpsource);
@@ -172,7 +172,7 @@ struct property_value
     : jt_(&property_value_void_jump_table)
     , sbo_ {}
     {
-        other.jt_->move(&sbo_, &other.sbo_);
+        other.jt_->move_construct(&sbo_, &other.sbo_);
         jt_ = std::exchange(other.jt_, &property_value_void_jump_table);
     }
 
@@ -193,7 +193,7 @@ struct property_value
         jt_ = &property_value_void_jump_table;
 
         // move-construct our implementation from copy
-        tmp.jt_->move(&sbo_, &tmp);
+        tmp.jt_->move_construct(&sbo_, &tmp);
         jt_ = std::exchange(tmp.jt_, &property_value_void_jump_table);
 
         return *this;
