@@ -2,3 +2,4 @@ CMakeUserPresets.json
 build
 cmake-build-*
 out
+.idea/

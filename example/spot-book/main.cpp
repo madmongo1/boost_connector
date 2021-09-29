@@ -4,6 +4,7 @@
 #include <boost/connector/order_book.hpp>
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
 #include <boost/connector/vendor/ftx/order_book_impl.hpp>
+#include <boost/core/demangle.hpp>
 
 #include <iostream>
 
@@ -28,11 +29,11 @@ struct any_set_layer
         auto i = map_.find(typeid(T));
         if (i == map_.end())
             if (parent_)
-                return parent->query< T >();
+                return parent_->query< T >();
             else
                 return nullptr;
         else
-            return std::any_cast< T >(std::addressod(i->second));
+            return std::any_cast< T >(std::addressof(i->second));
     }
 
     template < class T >
@@ -45,8 +46,20 @@ struct any_set_layer
     catch (std::exception &)
     {
         std::ostringstream ss;
-        ss << "any_set: " << boost::demangle(typeid(t).name()) << " not found";
+        ss << "any_set: " << boost::core::demangled_name(typeid(T))
+           << " not found";
         std::throw_with_nested(std::invalid_argument(std::move(ss).str()));
+    }
+
+    template<class T>
+    void set(T&& x)
+    {
+        using type = std::decay_t<T>;
+        auto i = map_.find(typeid(type));
+        if (i == map_.end())
+            map_.template emplace_hint(i, typeid(type), std::forward<T>(x));
+        else
+            i->second = std::forward<T>(x);
     }
 
     std::shared_ptr< any_set_layer const >          parent_;
@@ -112,20 +125,20 @@ struct any_set
     std::shared_ptr< any_set_layer const > impl_ = nullptr;
 };
 
-struct entity_context
+struct any_map_layer
 {
-    using mutex_type = std::recursive_mutex;
-    using lock_type  = std::unique_lock< mutex_type >;
+    using map_type = std::unordered_map< std::string, std::any >;
+    map_type map_;
+};
 
-    lock_type
-    lock();
+struct mutable_any_map
+{
+};
 
-  private:
-    struct cache
-    {
-        mutex_type mutex_;
-    };
-    std::shared_ptr< cache > cache_;
+struct any_map
+{
+    mutable_any_map
+    mutate() const;
 };
 
 template < class Interface >
@@ -150,13 +163,14 @@ struct order_book_handle
     template < class T >
     std::shared_ptr< interface::order_book_concept >
     acquire(interface_tag< T > tag,
-            entity_context &   context,
+            entity_context    &context,
             std::string        base,
             std::string        term)
     {
-        context.set_params(context.mutate_params().set("base", std::move(base)).set("term", std::move(base));
-        auto candidate = context.construct<>
-        auto lock      = context.lock();
+        context.params(context.params()
+                           .mutate()
+                           .set("base", std::move(base))
+                           .set("term", std::move(base)));
     }
 
   private:
@@ -167,6 +181,13 @@ struct order_book_handle
 int
 main()
 {
+    namespace connector = boost::connector;
+
+    auto m = connector::property_map();
+    auto m2 = fix(mutate(m).set("base", "USD"));
+
+
+
     std::cout << "Hello, World!\n";
 
     auto ioc = boost::asio::io_context();
