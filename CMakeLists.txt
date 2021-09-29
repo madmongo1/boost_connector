@@ -6,6 +6,11 @@ if (NOT BUILD_SHARED_LIBS)
     set(Boost_USE_STATIC_LIBS ON)
 endif()
 
+if(WIN32)
+    add_compile_definitions("WINVER=0x0A00" "_WIN32_WINNT=0x0A00")
+    add_compile_options(-bigobj)
+endif()
+
 option(BOOST_CONNECTOR_BUILD_TESTS ON)
 
 find_package(Boost REQUIRED COMPONENTS json)
