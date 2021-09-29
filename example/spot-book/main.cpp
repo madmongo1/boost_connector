@@ -5,7 +5,7 @@
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
 #include <boost/connector/vendor/ftx/order_book_impl.hpp>
 #include <boost/core/demangle.hpp>
-
+#include <unordered_set>
 #include <iostream>
 
 namespace asio = boost::asio;
@@ -51,15 +51,16 @@ struct any_set_layer
         std::throw_with_nested(std::invalid_argument(std::move(ss).str()));
     }
 
-    template<class T>
-    void set(T&& x)
+    template < class T >
+    void
+    set(T &&x)
     {
-        using type = std::decay_t<T>;
-        auto i = map_.find(typeid(type));
+        using type = std::decay_t< T >;
+        auto i     = map_.find(typeid(type));
         if (i == map_.end())
-            map_.template emplace_hint(i, typeid(type), std::forward<T>(x));
+            map_.template emplace_hint(i, typeid(type), std::forward< T >(x));
         else
-            i->second = std::forward<T>(x);
+            i->second = std::forward< T >(x);
     }
 
     std::shared_ptr< any_set_layer const >          parent_;
@@ -167,10 +168,9 @@ struct order_book_handle
             std::string        base,
             std::string        term)
     {
-        context.params(context.params()
-                           .mutate()
-                           .set("base", std::move(base))
-                           .set("term", std::move(base)));
+        context.params(fix(mutate(context.params())
+                               .set("base", std::move(base))
+                               .set("term", std::move(base))));
     }
 
   private:
@@ -183,10 +183,23 @@ main()
 {
     namespace connector = boost::connector;
 
-    auto m = connector::property_map();
+    auto m  = connector::property_map();
     auto m2 = fix(mutate(m).set("base", "USD"));
+    auto a = connector::property_value (std::string("USD"));
+
+    std::cout << "before" << std::endl;
+    std::cout << a << std::endl;
+    std::cout << hash_value(a) << std::endl;
+    a = std::move(a);
+    std::cout << "after" << std::endl;
+    std::cout << a << std::endl;
+    std::cout << hash_value(a) << std::endl;
+
+    std::unordered_set<connector::property_value, boost::hash<connector::property_value> > my_s;
+    my_s.emplace(std::move(a));
 
 
+    std::exit(0);
 
     std::cout << "Hello, World!\n";
 
