@@ -1,11 +1,16 @@
 //
-// Created by hodge on 29/09/2021.
+// Copyright (c) 2021 Richard Hodges (hodges.r@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/madmongo1/boost_connector
 //
 
 #ifndef BOOST_CONNECTOR_PROPERTY_MAP_HPP
 #define BOOST_CONNECTOR_PROPERTY_MAP_HPP
 
-#include <boost/functional/hash.hpp>
+#include <boost/connector/property_value.hpp>
 
 #include <ostream>
 #include <unordered_map>
@@ -83,171 +88,6 @@ boost::type_erasure::any<
 >;
 */
 // clang-format on
-
-struct property_value_jump_table
-{
-    std::type_info const &(*info)();
-    void (*destroy)(void *o);
-    void (*move_construct)(void *dest, void *source);
-    bool (*equal)(void const *l, void const *r);
-    std::size_t (*hash_value)(void const *l);
-    void (*to_ostream)(std::ostream &os, void const *arg);
-};
-
-inline const property_value_jump_table property_value_void_jump_table = {
-    // clang-format off
-    .info = []() -> std::type_info const& {
-        return typeid(void);
-    },
-    .destroy = [](void *) {
-    },
-    .move_construct = [](void *, void *) {
-    },
-    .equal = [](void const *, void const *) {
-        return true;
-    },
-    .hash_value = [](void const *) -> std::size_t {
-        return 0;
-    },
-    .to_ostream = [](std::ostream &os, void const *) {
-        os << "empty";
-    }
-    // clang-format on
-};
-
-template < class T >
-const property_value_jump_table property_value_short_jump_table = {
-    // clang-format off
-    .info = []() -> std::type_info const& { return typeid(T); },
-    .destroy = [](void *vp)
-    {
-        T* p  = static_cast< T* >(vp);
-        p->~T();
-    },
-    .move_construct = [](void *vpdest, void *vpsource)
-    {
-        T* pdest= static_cast< T* >(vpdest);
-        T* psource= static_cast< T* >(vpsource);
-        new (pdest) T (std::move(*psource));
-    },
-    .equal = [](void const *vpl, void const *vpr)
-    {
-        T const* pl = static_cast< T const * >(vpl);
-        T const* pr = static_cast< T const * >(vpr);
-        return *pl == *pr;
-    },
-    .hash_value = [](void const *vp)
-    {
-        T const* p  = static_cast< T const *>(vp);
-        return boost::hash< T >()(*p);
-    },
-    .to_ostream = [](std::ostream &os, void const *vp)
-    {
-        T const *p  = static_cast< T const * >(vp);
-        os << *p;
-    }
-    // clang-format on
-};
-
-struct property_value
-{
-    template < class T,
-               std::enable_if_t<
-                   !std::is_base_of_v< property_value, std::decay_t< T > > > * =
-                   nullptr >
-    property_value(T &&x)
-    : sbo_ {}
-    , jt_(&property_value_void_jump_table)
-    {
-        construct(std::forward< T >(x));
-    }
-
-    property_value()
-    : jt_(&property_value_void_jump_table)
-    , sbo_ {}
-    {
-    }
-
-    property_value(property_value &&other)
-    : jt_(&property_value_void_jump_table)
-    , sbo_ {}
-    {
-        other.jt_->move_construct(&sbo_, &other.sbo_);
-        jt_ = std::exchange(other.jt_, &property_value_void_jump_table);
-    }
-
-    template < std::size_t N >
-    property_value(const char (&s)[N])
-    : property_value(std::string(s))
-    {
-    }
-
-    property_value &
-    operator=(property_value &&other)
-    {
-        // make move-constructed copy
-        auto tmp = property_value(std::move(other));
-
-        // destroy our implementation
-        jt_->destroy(&sbo_);
-        jt_ = &property_value_void_jump_table;
-
-        // move-construct our implementation from copy
-        tmp.jt_->move_construct(&sbo_, &tmp);
-        jt_ = std::exchange(tmp.jt_, &property_value_void_jump_table);
-
-        return *this;
-    }
-
-    ~property_value() { jt_->destroy(&sbo_); }
-
-    friend std::ostream &
-    operator<<(std::ostream &os, property_value const &arg)
-    {
-        if (arg.jt_)
-            arg.jt_->to_ostream(os, &arg.sbo_);
-        else
-            os << "empty";
-        return os;
-    }
-
-    friend std::size_t
-    hash_value(property_value const &arg)
-    {
-        if (arg.jt_)
-            return arg.jt_->hash_value(&arg.sbo_);
-        else
-            return 0;
-    }
-
-    bool
-    operator==(property_value const &r) const
-    {
-        if (jt_->info() != r.jt_->info())
-            return false;
-        return jt_->equal(&sbo_, &r.sbo_);
-    }
-
-    template < class T >
-    void
-    construct(T &&x)
-    {
-        using type = std::decay_t< T >;
-        if (sizeof(type) <= sizeof(sbo_))
-        {
-            new (&sbo_) type(std::forward< T >(x));
-            jt_ = &property_value_short_jump_table< type >;
-        }
-        else
-        {
-            jt_ = nullptr;
-        }
-    }
-
-    using storage_type = std::aligned_storage_t< sizeof(std::string) >;
-    storage_type                     sbo_;
-    property_value_jump_table const *jt_;
-};
 
 struct property_map_layer
 {
@@ -342,7 +182,7 @@ mutate(property_map const &source_map)
     return mutable_property_map(source_map.get_implementation());
 }
 
-property_map
+inline property_map
 fix(mutable_property_map &&m)
 {
     return property_map(std::move(m).get_implementation());

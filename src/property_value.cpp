@@ -7,7 +7,7 @@
 // Official repository: https://github.com/madmongo1/router
 //
 
-#include <boost/connector/property_map.hpp>
+#include <boost/connector/property_value.hpp>
 
 namespace boost::connector
 {

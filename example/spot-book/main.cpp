@@ -1,3 +1,5 @@
+#include "property_value.hpp"
+
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/connector/entity/entity_cache.hpp>
@@ -5,8 +7,9 @@
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
 #include <boost/connector/vendor/ftx/order_book_impl.hpp>
 #include <boost/core/demangle.hpp>
-#include <unordered_set>
+
 #include <iostream>
+#include <unordered_set>
 
 namespace asio = boost::asio;
 using namespace std::literals;
