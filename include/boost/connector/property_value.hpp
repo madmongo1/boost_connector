@@ -13,13 +13,14 @@
 #include <boost/functional/hash.hpp>
 
 #include <ostream>
+#include <typeinfo>
 
 namespace boost::connector
 {
 struct property_value_jump_table
 {
     const void *(*query)(const void *pv, std::type_info const &ti);
-    type_info const &(*info)();
+    std::type_info const &(*info)();
     void (*destroy)(void *o);
     void (*move_construct)(void *dest, void *source);
     bool (*equal)(void const *l, void const *r);
@@ -32,7 +33,7 @@ inline const property_value_jump_table property_value_void_jump_table = {
     .query = [](const void* pv, std::type_info const& ti) -> void const * {
         return ti == typeid(void) ? pv : nullptr;
     },
-    .info = []() -> type_info const& {
+    .info = []() -> std::type_info const& {
         return typeid(void);
     },
     .destroy = [](void *) {
@@ -67,7 +68,7 @@ const property_value_jump_table property_value_short_jump_table = {
     .query = [](const void* pv, std::type_info const& ti) -> void const * {
         return ti == typeid(T) ? pv : nullptr;
     },
-    .info = []() -> type_info const& { return typeid(T); },
+    .info = []() -> std::type_info const& { return typeid(T); },
     .destroy = [](void *vp)
     {
         detail::destroy_impl(static_cast< T* >(vp));
@@ -104,7 +105,7 @@ const property_value_jump_table property_value_long_jump_table = {
         auto up = static_cast<std::unique_ptr<T> const*>(pv);
         return ti == typeid(T) ? up->get() : nullptr;
     },
-    .info = []() -> type_info const& { return typeid(T); },
+    .info = []() -> std::type_info const& { return typeid(T); },
     .destroy = [](void *vp)
     {
         detail::destroy_impl(static_cast<std::unique_ptr<T> *>(vp));

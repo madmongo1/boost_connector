@@ -99,6 +99,17 @@ struct property_map_layer
     {
     }
 
+    property_value const *
+    query(std::string const &key) const
+    {
+        property_value const *result = nullptr;
+        if (auto i = map_.find(key); i != map_.end())
+            result = &i->second;
+        else if (parent_)
+            result = parent_->query(key);
+        return result;
+    }
+
     template < class T >
     void
     set(std::string_view name, T &&value)
@@ -127,6 +138,12 @@ struct property_map
     {
     }
 
+    property_value const *
+    query(std::string const &key) const
+    {
+        return impl_->query(key);
+    }
+
     std::shared_ptr< property_map_layer > const &
     get_implementation() const
     {
@@ -138,7 +155,7 @@ struct property_map
 
 struct mutable_property_map
 {
-    mutable_property_map(property_map_layer::parent_type parent_layer)
+    mutable_property_map(property_map_layer::parent_type parent_layer = nullptr)
     : impl_(std::make_shared< property_map_layer >(std::move(parent_layer)))
     {
     }
