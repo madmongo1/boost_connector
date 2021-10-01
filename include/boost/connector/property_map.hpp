@@ -17,78 +17,6 @@
 
 namespace boost::connector
 {
-/*
-template < class V = boost::type_erasure::_self >
-struct has_hash_value
-{
-    static std::size_t
-    apply(V const &v)
-    {
-        const auto op = boost::hash< V >();
-        return op(v);
-    }
-};
-
-template < class T = boost::type_erasure::_self, class U = T && >
-struct has_move_assignable
-{
-    static T &
-    apply(T &t, U u)
-    {
-        return t = std::move(u);
-    }
-};
-*/
-}   // namespace boost::connector
-/*
-namespace boost::type_erasure
-{
-template < class C, class Base >
-struct concept_interface< ::boost::connector::has_hash_value< C >, Base, C >
-: Base
-{
-    friend std::size_t
-    hash_value(const Base &x)
-    {
-        return call(::boost::connector::has_hash_value< C >(), x);
-    }
-};
-
-template < class T, class U, class Base >
-struct concept_interface< ::boost::connector::has_move_assignable< T, U >,
-                          Base,
-                          T > : Base
-{
-    Base &
-    operator=(U &&y)
-    {
-        return call(
-            ::boost::connector::has_move_assignable< T, U >(), *this, y);
-    }
-};
-
-}   // namespace boost::type_erasure
- */
-namespace boost::connector
-{
-// clang-format off
-/*
-using property_value =
-boost::type_erasure::any<
-    boost::mpl::vector<
-//        has_move_assignable<>,
-        boost::type_erasure::destructible<>,
-        boost::type_erasure::equality_comparable<>,
-        boost::type_erasure::constructible< boost::type_erasure::_self(
-            boost::type_erasure::_self &&) >,
-        boost::type_erasure::ostreamable<>,
-        has_hash_value<>,
-        boost::type_erasure::relaxed
-    >
->;
-*/
-// clang-format on
-
 struct property_map_layer
 {
     using parent_type = std::shared_ptr< property_map_layer const >;
@@ -155,10 +83,7 @@ struct property_map
 
 struct mutable_property_map
 {
-    mutable_property_map(property_map_layer::parent_type parent_layer = nullptr)
-    : impl_(std::make_shared< property_map_layer >(std::move(parent_layer)))
-    {
-    }
+    mutable_property_map(property_map_layer::parent_type parent_layer = nullptr);
 
     template < class T >
     mutable_property_map &&

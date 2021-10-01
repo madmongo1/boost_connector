@@ -11,6 +11,7 @@
 #define BOOST_CONNECTOR_PROPERTY_VALUE_HPP
 
 #include <boost/functional/hash.hpp>
+#include <boost/utility/string_view.hpp>
 
 #include <ostream>
 #include <typeinfo>
@@ -183,13 +184,7 @@ struct property_value
     /// @post this object contains the state that was originally in other.
     /// @param other is the source of the move-construction.
     ///
-    property_value(property_value &&other)
-    : jt_(&property_value_void_jump_table)
-    , sbo_ {}
-    {
-        other.jt_->move_construct(&sbo_, &other.sbo_);
-        jt_ = std::exchange(other.jt_, &property_value_void_jump_table);
-    }
+    property_value(property_value &&other) noexcept;
 
     /// @brief Construct a property_value from a string literal.
     /// @post this->query<std::string>() != nullptr
@@ -207,71 +202,33 @@ struct property_value
     /// @post This object contains a std::string constructed from the string
     /// literal
     ///
-    property_value(const char *s)
-    : property_value(std::string(s))
-    {
-    }
+    property_value(const char *s);
 
     /// @brief Construct a property_value from a string_view.
     /// @post this->query<std::string>() != nullptr
     /// @post This object contains a std::string constructed from the
     /// string_view
     ///
-    property_value(std::string_view s)
-    : property_value(std::string(s.begin(), s.end()))
-    {
-    }
+    property_value(string_view s);
 
     /// @brief Move-assignement operator
     /// @post other.query<void>() != nullptr
     /// @post the original contents of this property_value is destroyed and
     /// original internal state of other is moved into *this.
     property_value &
-    operator=(property_value &&other)
-    {
-        // make move-constructed copy
-        auto tmp = property_value(std::move(other));
-
-        // destroy our implementation
-        jt_->destroy(&sbo_);
-        jt_ = &property_value_void_jump_table;
-
-        // move-construct our implementation from copy
-        tmp.jt_->move_construct(&sbo_, &tmp);
-        jt_ = std::exchange(tmp.jt_, &property_value_void_jump_table);
-
-        return *this;
-    }
+    operator=(property_value &&other) noexcept;
 
     /// @brief Destructor
-    ~property_value() { jt_->destroy(&sbo_); }
+    ~property_value();
 
     friend std::ostream &
-    operator<<(std::ostream &os, property_value const &arg)
-    {
-        if (arg.jt_)
-            arg.jt_->to_ostream(os, &arg.sbo_);
-        else
-            os << "empty";
-        return os;
-    }
+    operator<<(std::ostream &os, property_value const &arg);
 
     friend std::size_t
-    hash_value(property_value const &arg)
-    {
-        if (arg.jt_)
-            return arg.jt_->hash_value(&arg.sbo_);
-        else
-            return 0;
-    }
+    hash_value(property_value const &arg);
 
     bool
-    operator==(property_value const &r) const
-    {
-        if (jt_->info() != r.jt_->info())
-            return false;
-        return jt_->equal(&sbo_, &r.sbo_);
-    }
+    operator==(property_value const &r) const;
 
     template < class T >
     T const *
