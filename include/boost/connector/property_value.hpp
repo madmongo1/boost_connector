@@ -18,13 +18,35 @@
 
 namespace boost::connector
 {
+namespace detail
+{
+struct value_info
+{
+    std::type_info const *type;
+    void const           *address;
+};
+
+template < class T >
+struct compare_equal
+{
+    bool
+    operator()(const void *lp, value_info vi) const
+    {
+        return typeid(T) == *vi.type &&
+               std::equal_to< T >()(*static_cast< T const * >(lp),
+                                    *static_cast< T const * >(vi.address));
+    }
+};
+
+}   // namespace detail
+
 struct property_value_jump_table
 {
     const void *(*query)(const void *pv, std::type_info const &ti);
-    std::type_info const &(*info)();
+    detail::value_info (*info)(void const *pv);
     void (*destroy)(void *o);
     void (*move_construct)(void *dest, void *source);
-    bool (*equal)(void const *l, void const *r);
+    bool (*equal)(void const *l, detail::value_info vi);
     size_t (*hash_value)(void const *l);
     void (*to_ostream)(std::ostream &os, void const *arg);
 };
@@ -34,15 +56,18 @@ inline const property_value_jump_table property_value_void_jump_table = {
     .query = [](const void* pv, std::type_info const& ti) -> void const * {
         return ti == typeid(void) ? pv : nullptr;
     },
-    .info = []() -> std::type_info const& {
-        return typeid(void);
+    .info = [](void const* pv)
+    {
+        return detail::value_info { .type = &typeid(void), .address = pv };
     },
     .destroy = [](void *) {
     },
     .move_construct = [](void *, void *) {
     },
-    .equal = [](void const *, void const *) {
-        return true;
+    .equal = [](void const       *,
+                detail::value_info vi)
+    {
+        return typeid(void) == *vi.type;
     },
     .hash_value = [](void const *) -> size_t {
         return 0;
@@ -69,7 +94,10 @@ const property_value_jump_table property_value_short_jump_table = {
     .query = [](const void* pv, std::type_info const& ti) -> void const * {
         return ti == typeid(T) ? pv : nullptr;
     },
-    .info = []() -> std::type_info const& { return typeid(T); },
+    .info = [](void const* pv)
+    {
+        return detail::value_info { .type = &typeid(T), .address = pv };
+    },
     .destroy = [](void *vp)
     {
         detail::destroy_impl(static_cast< T* >(vp));
@@ -80,11 +108,10 @@ const property_value_jump_table property_value_short_jump_table = {
         T* psource= static_cast< T* >(vpsource);
         new (pdest) T (std::move(*psource));
     },
-    .equal = [](void const *vpl, void const *vpr)
+    .equal = [](void const       * lp,
+                detail::value_info vi)
     {
-        T const* pl = static_cast< T const * >(vpl);
-        T const* pr = static_cast< T const * >(vpr);
-        return *pl == *pr;
+        return detail::compare_equal<T>()(lp, vi);
     },
     .hash_value = [](void const *vp)
     {
@@ -106,7 +133,14 @@ const property_value_jump_table property_value_long_jump_table = {
         auto up = static_cast<std::unique_ptr<T> const*>(pv);
         return ti == typeid(T) ? up->get() : nullptr;
     },
-    .info = []() -> std::type_info const& { return typeid(T); },
+    .info = [](void const* pv)
+    {
+        return detail::value_info
+        {
+            .type = &typeid(T),
+            .address = static_cast<std::unique_ptr<T> const*>(pv)->get()
+        };
+    },
     .destroy = [](void *vp)
     {
         detail::destroy_impl(static_cast<std::unique_ptr<T> *>(vp));
@@ -119,13 +153,12 @@ const property_value_jump_table property_value_long_jump_table = {
             static_cast< std::unique_ptr<T> * >(vpsource);
         new (pdest) std::unique_ptr<T> (std::move(*psource));
     },
-    .equal = [](void const *vpl, void const *vpr)
+    .equal = [](void const       * vpl,
+                detail::value_info vi)
     {
-        std::unique_ptr<T> const* pl =
-            static_cast< std::unique_ptr<T> const * >(vpl);
-        std::unique_ptr<T> const* pr =
-            static_cast< std::unique_ptr<T> const * >(vpr);
-        return **pl == **pr;
+        std::unique_ptr<T> const& pl =
+            *static_cast< std::unique_ptr<T> const * >(vpl);
+        return detail::compare_equal<T>()(pl.get(), vi);
     },
     .hash_value = [](void const *vp)
     {
@@ -142,19 +175,20 @@ const property_value_jump_table property_value_long_jump_table = {
     // clang-format on
 };
 
-/// @brief A polymorphic type which contains any object supporting the concept
-/// of a property_type
-/// @details A property type is move-aware, equality-comparable, hashable, and
-/// ostreamable
-/// @note This class supports Small Buffer Optimisation and will not allocate
-/// memory when storing any object up to and including the size of a string.
+/// @brief A polymorphic type which contains any object supporting the
+/// concept of a property_type
+/// @details A property type is move-aware, equality-comparable, hashable,
+/// and ostreamable
+/// @note This class supports Small Buffer Optimisation and will not
+/// allocate memory when storing any object up to and including the size of
+/// a string.
 struct property_value
 {
     /// @brief Construct from any type supporting the concept property_type.
-    /// @note This overload id not a candidate for overload resolution if T is
-    /// derived from property_value.
-    /// @tparam T is any type supporting the property_type concept, other than
-    /// property_value.
+    /// @note This overload id not a candidate for overload resolution if T
+    /// is derived from property_value.
+    /// @tparam T is any type supporting the property_type concept, other
+    /// than property_value.
     /// @param x is a value of type T
     /// @post this->query<T>() != nullptr
     ///
@@ -234,7 +268,11 @@ struct property_value
     T const *
     query() const
     {
-        return static_cast< T const * >(jt_->query(&sbo_, typeid(T)));
+        const auto vi = jt_->info(&sbo_);
+        if (typeid(T) == *vi.type)
+            return static_cast< T const * >(vi.address);
+        else
+            return nullptr;
     }
 
     template < class T >

@@ -63,9 +63,7 @@ hash_value(property_value const &arg)
 bool
 property_value::operator==(property_value const &r) const
 {
-    if (jt_->info() != r.jt_->info())
-        return false;
-    return jt_->equal(&sbo_, &r.sbo_);
+    return jt_->equal(&sbo_, r.jt_->info(&r.sbo_));
 }
 
 std::ostream &
