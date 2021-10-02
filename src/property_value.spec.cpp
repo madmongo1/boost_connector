@@ -10,6 +10,7 @@
 #include <boost/connector/property_value.hpp>
 #include <catch2/catch.hpp>
 
+#include <ostream>
 #include <utility>
 
 namespace
@@ -116,4 +117,63 @@ TEST_CASE("property_value - big")
     CHECK(pv3.query< big_type >() == nullptr);
     REQUIRE(pv2.query< big_type >() != nullptr);
     CHECK(*pv2.query< big_type >() == big_type("bar"));
+}
+
+#include <boost/core/demangle.hpp>
+
+namespace
+{
+struct ptype_base
+{
+    std::type_info const &ti;
+
+    friend std::string
+    to_string(ptype_base const &pt)
+    {
+        return boost::core::demangle(pt.ti.name());
+    }
+
+    friend bool
+    operator==(ptype_base const &l, ptype_base const &r) noexcept
+    {
+        return l.ti == r.ti;
+    }
+
+    friend std::ostream &
+    operator<<(std::ostream &l, ptype_base const &r) noexcept
+    {
+        return l << to_string(r);
+    }
+};
+
+template < class T >
+struct ptype : ptype_base
+{
+    ptype()
+    : ptype_base { .ti = typeid(T) }
+    {
+    }
+};
+}   // namespace
+TEST_CASE("property_value and strings")
+{
+    using namespace boost;
+
+    std::string s   = "various strings";
+    auto        pv1 = connector::property_value(s);
+    auto        pv2 = connector::property_value(s.c_str());
+    auto        pv3 = connector::property_value(s.data());
+    auto        pv4 = connector::property_value(string_view(s));
+
+    REQUIRE(pv1.query<std::string>() != nullptr);
+    CHECK(*pv1.query<std::string>() == s);
+
+    REQUIRE(pv2.query<std::string>() != nullptr);
+    CHECK(*pv2.query<std::string>() == s);
+
+    REQUIRE(pv3.query<std::string>() != nullptr);
+    CHECK(*pv3.query<std::string>() == s);
+
+    REQUIRE(pv4.query<std::string>() != nullptr);
+    CHECK(*pv4.query<std::string>() == s);
 }

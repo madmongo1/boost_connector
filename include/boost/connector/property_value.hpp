@@ -13,6 +13,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/utility/string_view.hpp>
 
+#include <concepts>
 #include <ostream>
 #include <typeinfo>
 
@@ -37,12 +38,10 @@ struct compare_equal
                                     *static_cast< T const * >(vi.address));
     }
 };
-
 }   // namespace detail
 
 struct property_value_jump_table
 {
-    const void *(*query)(const void *pv, std::type_info const &ti);
     detail::value_info (*info)(void const *pv);
     void (*destroy)(void *o);
     void (*move_construct)(void *dest, void *source);
@@ -53,9 +52,6 @@ struct property_value_jump_table
 
 inline const property_value_jump_table property_value_void_jump_table = {
     // clang-format off
-    .query = [](const void* pv, std::type_info const& ti) -> void const * {
-        return ti == typeid(void) ? pv : nullptr;
-    },
     .info = [](void const* pv)
     {
         return detail::value_info { .type = &typeid(void), .address = pv };
@@ -91,9 +87,6 @@ destroy_impl(T *p)
 template < class T >
 const property_value_jump_table property_value_short_jump_table = {
     // clang-format off
-    .query = [](const void* pv, std::type_info const& ti) -> void const * {
-        return ti == typeid(T) ? pv : nullptr;
-    },
     .info = [](void const* pv)
     {
         return detail::value_info { .type = &typeid(T), .address = pv };
@@ -129,10 +122,6 @@ const property_value_jump_table property_value_short_jump_table = {
 template < class T >
 const property_value_jump_table property_value_long_jump_table = {
     // clang-format off
-    .query = [](const void* pv, std::type_info const& ti) -> void const * {
-        auto up = static_cast<std::unique_ptr<T> const*>(pv);
-        return ti == typeid(T) ? up->get() : nullptr;
-    },
     .info = [](void const* pv)
     {
         return detail::value_info
@@ -147,9 +136,9 @@ const property_value_jump_table property_value_long_jump_table = {
     },
     .move_construct = [](void *vpdest, void *vpsource)
     {
-        std::unique_ptr<T> * pdest =
+        auto pdest =
             static_cast< std::unique_ptr<T> * >(vpdest);
-        std::unique_ptr<T> * psource =
+        auto psource =
             static_cast< std::unique_ptr<T> * >(vpsource);
         new (pdest) std::unique_ptr<T> (std::move(*psource));
     },
@@ -162,18 +151,46 @@ const property_value_jump_table property_value_long_jump_table = {
     },
     .hash_value = [](void const *vp)
     {
-        std::unique_ptr<T> const* p  =
+        auto p  =
             static_cast< std::unique_ptr<T> const * >(vp);
         return boost::hash< T >()(**p);
     },
     .to_ostream = [](std::ostream &os, void const *vp)
     {
-        std::unique_ptr<T> const *p  =
+        auto p  =
             static_cast< std::unique_ptr<T> const * >(vp);
         os << **p;
     }
     // clang-format on
 };
+
+struct property_value;
+
+template < class T >
+concept is_property_value =
+    std::is_base_of_v< property_value, std::decay_t< T > >;
+
+// clang-format off
+template<class T>
+concept property_value_compatible = requires(const T& x, T&& y, std::ostream& os)
+{
+    { boost::hash<T>()(x) };
+    { std::equal_to<>()(x, x) };
+    { T(std::move(y)) };
+    { os << x };
+};
+
+
+template<class T>
+concept property_value_contents =
+    property_value_compatible<T> &&
+        !is_property_value<T> &&
+        !std::same_as<T, string_view> &&
+        !std::same_as<T, const char*>;
+
+static_assert(property_value_contents<std::string const&>);
+
+// clang-format on
 
 /// @brief A polymorphic type which contains any object supporting the
 /// concept of a property_type
@@ -192,11 +209,9 @@ struct property_value
     /// @param x is a value of type T
     /// @post this->query<T>() != nullptr
     ///
-    template < class T,
-               std::enable_if_t<
-                   !std::is_base_of_v< property_value, std::decay_t< T > > > * =
-                   nullptr >
-    property_value(T &&x)
+    template < class T >
+    explicit property_value(T &&x) requires(
+        !is_property_value< T > && !std::is_pointer_v< std::decay_t< T > >)
     : sbo_ {}
     , jt_(&property_value_void_jump_table)
     {
@@ -207,7 +222,7 @@ struct property_value
     /// @post this->query<void>() != nullptr
     /// @post this->query<[anything other than void]>() == nullptr
     ///
-    property_value()
+    explicit property_value()
     : jt_(&property_value_void_jump_table)
     , sbo_ {}
     {
@@ -226,7 +241,7 @@ struct property_value
     /// literal
     ///
     template < std::size_t N >
-    property_value(const char (&s)[N])
+    explicit property_value(const char (&s)[N])
     : property_value(std::string(s))
     {
     }
@@ -236,14 +251,14 @@ struct property_value
     /// @post This object contains a std::string constructed from the string
     /// literal
     ///
-    property_value(const char *s);
+    explicit property_value(const char *s);
 
     /// @brief Construct a property_value from a string_view.
     /// @post this->query<std::string>() != nullptr
     /// @post This object contains a std::string constructed from the
     /// string_view
     ///
-    property_value(string_view s);
+    explicit property_value(string_view s);
 
     /// @brief Move-assignement operator
     /// @post other.query<void>() != nullptr
@@ -280,7 +295,7 @@ struct property_value
     construct(T &&x)
     {
         using type = std::decay_t< T >;
-        if (sizeof(type) <= sizeof(sbo_))
+        if constexpr (sizeof(type) <= sizeof(sbo_))
         {
             new (&sbo_) type(std::forward< T >(x));
             jt_ = &property_value_short_jump_table< type >;
@@ -296,5 +311,6 @@ struct property_value
     storage_type                     sbo_;
     property_value_jump_table const *jt_;
 };
+
 }   // namespace boost::connector
 #endif   // BOOST_CONNECTOR_PROPERTY_VALUE_HPP

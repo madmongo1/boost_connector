@@ -17,7 +17,7 @@ property_value::property_value(const char *s)
 }
 
 property_value::property_value(string_view s)
-: property_value(std::string(s.begin(), s.end()))
+: property_value(std::string(s))
 {
 }
 

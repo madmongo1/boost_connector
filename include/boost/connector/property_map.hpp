@@ -42,7 +42,6 @@ struct property_map_layer
     void
     set(std::string_view name, T &&value)
     {
-        static_assert(std::is_convertible_v< T &&, property_value >);
         static thread_local std::string key;
         key.assign(name.begin(), name.end());
 
