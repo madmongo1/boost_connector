@@ -13,7 +13,7 @@ endif()
 
 option(BOOST_CONNECTOR_BUILD_TESTS ON)
 
-find_package(Boost REQUIRED COMPONENTS json)
+find_package(Boost 1.78 REQUIRED COMPONENTS json)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 

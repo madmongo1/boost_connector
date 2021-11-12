@@ -86,6 +86,7 @@ struct mutable_any_set
     set(T &&x)
     {
         impl_->set(std::forward< T >(x));
+        return *this;
     }
 
     std::shared_ptr< any_set_layer >
