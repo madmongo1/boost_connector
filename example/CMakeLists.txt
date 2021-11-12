@@ -1,1 +1,7 @@
-add_subdirectory(spot-book)
+file(GLOB names INCLUDE_DIRECTORIES "*")
+message(STATUS "${names}")
+foreach(name IN LISTS names)
+    if (IS_DIRECTORY "${name}")
+        add_subdirectory("${name}")
+    endif()
+endforeach()

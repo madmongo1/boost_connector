@@ -1,9 +1,8 @@
-#include "property_value.hpp"
-
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/connector/entity/entity_cache.hpp>
 #include <boost/connector/order_book.hpp>
+#include <boost/connector/property_value.hpp>
 #include <boost/connector/vendor/ftx/interface/ftx_websocket_connector_concept.hpp>
 #include <boost/connector/vendor/ftx/order_book_impl.hpp>
 #include <boost/core/demangle.hpp>
@@ -188,7 +187,7 @@ main()
 
     auto m  = connector::property_map();
     auto m2 = fix(mutate(m).set("base", "USD"));
-    auto a = connector::property_value (std::string("USD"));
+    auto a  = connector::property_value(std::string("USD"));
 
     std::cout << "before" << std::endl;
     std::cout << a << std::endl;
@@ -198,9 +197,10 @@ main()
     std::cout << a << std::endl;
     std::cout << hash_value(a) << std::endl;
 
-    std::unordered_set<connector::property_value, boost::hash<connector::property_value> > my_s;
+    std::unordered_set< connector::property_value,
+                        boost::hash< connector::property_value > >
+        my_s;
     my_s.emplace(std::move(a));
-
 
     std::exit(0);
 
