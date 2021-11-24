@@ -1,0 +1,13 @@
+//
+// Created by hodge on 24/11/2021.
+//
+
+#ifndef BOOST_CONNECTOR_ENTITY_IMPL_MUTABLE_KEY_HPP
+#define BOOST_CONNECTOR_ENTITY_IMPL_MUTABLE_KEY_HPP
+
+namespace boost::connector
+{
+
+}
+
+#endif   // BOOST_CONNECTOR_ENTITY_IMPL_MUTABLE_KEY_HPP
